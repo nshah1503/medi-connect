@@ -4,6 +4,7 @@ import pdfkit
 from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, storage
+import os
 
 # Load JSON data
 # with open('output.json') as f:
