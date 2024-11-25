@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "../Layout/Layout";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card.js";
 import { Button } from "../Button/Button.js";
+import HumeAISection from '../HumeAI/HumeAISection.js';
+//import InsuranceFeatures from "../Insurance/InsuranceFeatures.js";
 
 const PatientCalendarPage = () => {
+  const navigate = useNavigate();
   const [upcomingAppointments, setUpcomingAppointments] = useState([
     { id: 1, date: "2024-10-21", time: "10:00 AM", doctor: "Dr. John Doe" },
   ]);
@@ -17,91 +20,29 @@ const PatientCalendarPage = () => {
     { id: 2, name: "X-Ray", date: "2024-10-27" },
   ]);
 
-  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const timeSlots = [
-    "9:00 AM",
-    "10:00 AM",
-    "11:00 AM",
-    "2:00 PM",
-    "3:00 PM",
-    "4:00 PM",
-  ];
-
-  const [availableSlots, setAvailableSlots] = useState({});
-
-  useEffect(() => {
-    const newAvailableSlots = {};
-    weekDays.forEach((day) => {
-      const availableSlotsForDay = timeSlots
-        .sort(() => 0.5 - Math.random())
-        .slice(0, Math.floor(Math.random() * 3) + 1); // 1 to 3 slots per day
-      newAvailableSlots[day] = availableSlotsForDay;
-    });
-    setAvailableSlots(newAvailableSlots);
-  }, []);
-
-  const handleSlotSelection = (day, time) => {
-    setUpcomingAppointments([
-      ...upcomingAppointments,
-      {
-        id: Date.now(),
-        date: `2024-10-${20 + weekDays.indexOf(day)}`,
-        time,
-        doctor: "Dr. John Doe",
-      },
-    ]);
-  };
-
   const launchVideoCall = () => {
     try {
       window.open("https://doc-talk.daily.co/doc-talk", "_blank");
     } catch (error) {}
   };
 
+  const handleBookAppointment = () => {
+    navigate("/patient/doctors");
+  };
+
   return (
     <Layout userType="patient">
       <div className="container mx-auto py-8">
         <h1 className="text-3xl font-bold mb-8 text-red-700">
-          Book an Appointment
+          Patient Dashboard
         </h1>
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">Weekly Calendar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-4">
-              {weekDays.map((day) => (
-                <div key={day} className="text-center">
-                  <div className="font-bold mb-2">{day}</div>
-                  <div className="grid grid-rows-5 gap-2">
-                    {[...Array(5)].map((_, index) => {
-                      const time =
-                        availableSlots[day] && availableSlots[day][index];
-                      return time ? (
-                        <Button
-                          key={`${day}-${time}`}
-                          onClick={() => handleSlotSelection(day, time)}
-                          className="w-full bg-green-700 hover:bg-green-800 text-white p-2 transition-all duration-200 ease-in-out group"
-                        >
-                          <span className="block group-hover:hidden">
-                            {time}
-                          </span>
-                          <span className="hidden group-hover:block">Book</span>
-                        </Button>
-                      ) : (
-                        <div
-                          key={`${day}-empty-${index}`}
-                          className="w-full h-10"
-                        ></div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <Button
+          onClick={handleBookAppointment}
+          className="bg-red-700 text-white p-4 rounded-lg mb-8 text-xl font-bold"
+        >
+          Book Appointment
+        </Button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <Card>
@@ -172,6 +113,16 @@ const PatientCalendarPage = () => {
             </CardContent>
           </Card>
         </div>
+        <div className="mt-8">
+          <Card>
+          <CardHeader>
+            <CardTitle className="text-xl font-bold">Insurance Features</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* <InsuranceFeatures /> */}
+          </CardContent>
+        </Card>
+      </div>
       </div>
     </Layout>
   );
