@@ -31,7 +31,7 @@ const Layout = ({ children }) => {
       <nav className="bg-white shadow-md py-4">
         <div className="container mx-auto flex justify-between items-center">
           <Link to={logoLink} className="text-3xl font-bold text-red-700">
-            Conslt.ai
+            Mediconnect
           </Link>
           <div className="flex items-center space-x-6">
             <div className="relative">
@@ -62,7 +62,7 @@ const Layout = ({ children }) => {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-2xl font-bold mb-4">Conslt.ai</h3>
+              <h3 className="text-2xl font-bold mb-4">Mediconnect</h3>
               <p className="mb-4">
                 Transforming Healthcare, One Consultation at a Time
               </p>
@@ -124,10 +124,10 @@ const Layout = ({ children }) => {
                 <li className="flex items-center">
                   <Mail size={16} className="mr-2" />
                   <a
-                    href="mailto:support@consltai.com"
+                    href="mailto:support@mediconnect.com"
                     className="text-gray-400 hover:text-white"
                   >
-                    support@consltai.com
+                    support@mediconnect.com
                   </a>
                 </li>
                 <li className="flex items-center">

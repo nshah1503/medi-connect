@@ -51,7 +51,32 @@ const LandingPage = () => {
       </div>
 
       {/* Hero Section */}
-      <section className="py-12 bg-gray-100">
+
+      {/* Hero Section */}
+<section className="py-12 bg-gray-100">
+  <div className="container mx-auto flex items-center">
+    <div className="w-1/2 pr-8">
+      <h1 className="text-4xl font-bold mb-4 text-red-700">
+        Streamline Healthcare with AI
+      </h1>
+      <p className="text-xl mb-8">
+        Our AI assistant automates consultations, diagnoses, and appointments—saving time and improving patient care for doctors. Patients can connect with top doctors and receive care from the comfort of their home.
+      </p>
+      <div className="flex space-x-4">
+        <Button size="lg" className="bg-red-700 hover:bg-red-800 text-white">
+          <Link to="/doctor/calendar">I am a Doctor</Link>
+        </Button>
+        <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Link to="/patient/calendar">I am a Patient</Link>
+        </Button>
+      </div>
+    </div>
+    <div className="w-1/2">
+      <img src={"/resources/landing-pic.jpg"} alt="Medical consultation" className="rounded-lg shadow-lg" />
+    </div>
+  </div>
+</section>
+      {/* <section className="py-12 bg-gray-100">
         <div className="container mx-auto flex items-center">
           <div className="w-1/2 pr-8">
             <h1 className="text-4xl font-bold mb-4 text-red-700">
@@ -87,13 +112,13 @@ const LandingPage = () => {
             />
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Why This Application Section */}
       <section id="features" className="py-12">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold mb-8 text-center">
-            Why Conslt.ai?
+            Why Mediconnect?
           </h2>
           <div className="grid grid-cols-3 gap-8">
             <Card>
@@ -146,7 +171,7 @@ const LandingPage = () => {
       <section id="how-it-works" className="py-12 bg-gray-100">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold mb-8 text-center">
-            How to Use Conslt.ai?
+            How to Use Mediconnect?
           </h2>
           <div className="grid grid-cols-3 gap-8">
             <Card>

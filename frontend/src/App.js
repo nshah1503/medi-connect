@@ -13,7 +13,11 @@ import VideoChatNew from "./components/VideoChatNew/VideoChat";
 import ReviewPDF from "./components/ReviewPDF/ReviewPDF";
 import DoctorsPage from "./components/DoctorsPage/DoctorsPage";
 import VideoCallPage from "./components/VideoCall/VideoCall";
+import PaymentPage from "./components/Payment/Payment";
+import ECard from "./components/Insurance/ECard";
+import Claims from "./components/Insurance/Claims";
 import "./index.css";
+import EmpanelHospital from "./components/Insurance/EmpanelHospital";
 
 const App = () => {
   return (
@@ -32,6 +36,10 @@ const App = () => {
         <Route path="/patient/video-call" element={<VideoCallPage />} />
         <Route path="/doctor/review-pdf/:filePath" element={<ReviewPDF />} />
         <Route path="/patient/review-pdf/:filePath" element={<ReviewPDF />} />
+        <Route path="/payment" element={<PaymentPage/>}/>
+        <Route path="/ecard" element={<ECard/>}/>
+        <Route path="/claims" element={<Claims/>}/>
+        <Route path="/empanelhospital" element={<EmpanelHospital/>}/>
       </Routes>
     </Router>
   );
