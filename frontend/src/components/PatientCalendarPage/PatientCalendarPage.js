@@ -5,31 +5,73 @@ import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card.js";
 import { Button } from "../Button/Button.js";
 import InsuranceFeatures from "../Insurance/InsuranceFeatures.js";
 import axios from "axios";
+import { storage } from "../../firebase";
+import { ref, listAll, getMetadata } from "firebase/storage";
 
 const PatientCalendarPage = () => {
   const navigate = useNavigate();
-  const [upcomingAppointments, setUpcomingAppointments] = useState("");
-  const [prescriptions, setPrescriptions] = useState("");
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [files, setFiles] = useState([]);
   const [upcomingTests, setUpcomingTests] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const userId = "12345"; // Replace with dynamic user ID if needed
 
   useEffect(() => {
     const fetchPatientData = async () => {
       try {
-        const patientId = "123456"; // Replace with dynamic patient ID if needed
-        const response = await axios.get(`http://localhost:4000/patients/${patientId}`);
-        const { prescriptions, upcomingAppointments, upcomingTests } = response.data;
+        // Fetch booking data from the backend
+        const bookingResponse = await axios.get(`http://localhost:4000/fetch-bookings/${userId}`);
+        const { bookings } = bookingResponse.data;
 
-        // Update state with fetched data
-        setPrescriptions(prescriptions);
-        setUpcomingAppointments(upcomingAppointments);
+        setUpcomingAppointments(bookings);
+
+        // Fetch additional patient information
+        const response = await axios.get(`http://localhost:4000/patients/${userId}`);
+        const { upcomingTests } = response.data;
         setUpcomingTests(upcomingTests);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError(err.message);
+      }
+    };
+
+    const fetchFiles = async () => {
+      try {
+        const storageRef = ref(storage, "pdfs");
+        const fileList = await listAll(storageRef);
+
+        const filesWithMetadata = await Promise.all(
+          fileList.items.map(async (item) => {
+            const metadata = await getMetadata(item);
+            return {
+              name: item.name,
+              fullPath: item.fullPath,
+              type: metadata.contentType,
+              date: metadata.timeCreated,
+            };
+          })
+        );
+
+        // Filter out .placeholder and non-PDF files
+        const pdfFiles = filesWithMetadata.filter(
+          (file) =>
+            file.type === "application/pdf" && file.name !== ".placeholder"
+        );
+
+        setFiles(pdfFiles);
+        setLoading(false);
       } catch (error) {
-        console.error("Error fetching patient data:", error);
+        console.error("Error fetching files:", error);
+        setError(`Error fetching files: ${error.message}`);
+        setLoading(false);
       }
     };
 
     fetchPatientData();
-  }, []);
+    fetchFiles();
+  }, [userId]);
 
   const launchVideoCall = () => {
     try {
@@ -42,6 +84,14 @@ const PatientCalendarPage = () => {
   const handleBookAppointment = () => {
     navigate("/patient/doctors");
   };
+
+  if (loading) {
+    return <p>Loading your data...</p>;
+  }
+
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
+  }
 
   return (
     <Layout userType="patient">
@@ -62,16 +112,31 @@ const PatientCalendarPage = () => {
               <CardTitle className="text-xl font-bold">Upcoming Appointments</CardTitle>
             </CardHeader>
             <CardContent>
-              {upcomingAppointments ? (
-                <p>
-                  <Link
-                    to={upcomingAppointments}
-                    target="_blank"
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    View your upcoming appointments
-                  </Link>
-                </p>
+              {upcomingAppointments.length > 0 ? (
+                <ul className="space-y-4">
+                  {upcomingAppointments.map((appointment) => (
+                    <li key={appointment.id} className="bg-gray-100 p-4 rounded-md">
+                      <p>
+                        <strong>Doctor:</strong> {appointment.doctorName}
+                      </p>
+                      <p>
+                        <strong>Specialty:</strong> {appointment.speciality}
+                      </p>
+                      <p>
+                        <strong>Date:</strong> {appointment.date}
+                      </p>
+                      <p>
+                        <strong>Time:</strong> {appointment.time}
+                      </p>
+                      <Button
+                        onClick={launchVideoCall}
+                        className="text-blue-600 hover:text-blue-800 mt-2"
+                      >
+                        Join Video Call
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <p>No upcoming appointments.</p>
               )}
@@ -84,16 +149,23 @@ const PatientCalendarPage = () => {
               <CardTitle className="text-xl font-bold">Your Prescriptions</CardTitle>
             </CardHeader>
             <CardContent>
-              {prescriptions ? (
-                <p>
-                  <Link
-                    to={prescriptions}
-                    target="_blank"
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    View your prescriptions
-                  </Link>
-                </p>
+              {files.length > 0 ? (
+                <ul className="space-y-2">
+                  {files.map((file) => (
+                    <li
+                      key={file.fullPath}
+                      className="bg-gray-100 p-3 rounded-md hover:bg-gray-200 transition-colors"
+                    >
+                      <Link
+                        to={`/patient/review-pdf/${encodeURIComponent(file.fullPath)}`}
+                        className="text-blue-600 hover:text-blue-800 block"
+                      >
+                        <span className="font-semibold">{file.name}</span> -{" "}
+                        {new Date(file.date).toLocaleDateString()}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <p>No prescriptions available.</p>
               )}

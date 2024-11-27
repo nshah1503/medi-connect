@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Layout from "../Layout/Layout";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card.js";
 import { Button } from "../Button/Button.js";
-import HumeAISection from '../HumeAI/HumeAISection';
+import HumeAISection from '../DoctorsPage/HumeAISection';
 import {
   Dialog,
   DialogContent,
@@ -11,26 +11,14 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from "../Dialog/Dialog.js";
+} from "../Dialogue/Dialogue.js";
 
-const PatientCalendarPage = () => {
+const DoctorsPage = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  
-  const [upcomingAppointments, setUpcomingAppointments] = useState([
-    { id: 1, date: "2024-10-21", time: "10:00 AM", doctor: "Dr. John Doe" },
-  ]);
-  const [prescriptions, setPrescriptions] = useState([
-    { id: 1, name: "Prescription 1", date: "2024-10-18" },
-    { id: 2, name: "Prescription 2", date: "2024-10-19" },
-  ]);
-  const [upcomingTests, setUpcomingTests] = useState([
-    { id: 1, name: "Blood Test", date: "2024-10-25" },
-    { id: 2, name: "X-Ray", date: "2024-10-27" },
-  ]);
 
   const doctorCategories = [
     { id: "cardiology", name: "Cardiology" },
@@ -100,16 +88,12 @@ const PatientCalendarPage = () => {
   };
 
   const handleConfirmBooking = () => {
-    setUpcomingAppointments([
-      ...upcomingAppointments,
-      {
-        id: Date.now(),
-        date: `2024-10-${20 + weekDays.indexOf(selectedSlot.day)}`,
-        time: selectedSlot.time,
-        doctor: selectedDoctor.name,
-      },
-    ]);
-
+    const bookingData = {
+      doctorName: selectedDoctor.name,
+      speciality: selectedDoctor.designation,
+      date: `2024-10-${20 + weekDays.indexOf(selectedSlot.day)}`,
+      time: selectedSlot.time,
+    };
     setAvailableSlots(prevSlots => {
       const updatedSlots = { ...prevSlots };
       updatedSlots[selectedSlot.day] = updatedSlots[selectedSlot.day].map(slot => 
@@ -122,18 +106,12 @@ const PatientCalendarPage = () => {
     setSelectedSlot(null);
     
     // Redirect to payment page
-    navigate("/payment");
+    navigate("/payment", { state: bookingData });
   };
 
   const filteredDoctors = selectedCategory === "all" 
     ? doctors 
     : doctors.filter(doctor => doctor.category === selectedCategory);
-
-  const launchVideoCall = () => {
-    try {
-      window.open("https://doc-talk.daily.co/doc-talk", "_blank");
-    } catch (error) {}
-  };
 
   return (
     <Layout userType="patient">
@@ -228,77 +206,7 @@ const PatientCalendarPage = () => {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-bold">
-                Upcoming Appointments
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {upcomingAppointments.map((appointment) => (
-                  <li
-                    key={appointment.id}
-                    className="bg-gray-100 p-3 rounded-md"
-                  >
-                    <Link
-                      onClick={launchVideoCall}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      {appointment.date} - {appointment.time} with{" "}
-                      {appointment.doctor}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-bold">
-                Your Prescriptions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {prescriptions.map((prescription) => (
-                  <li
-                    key={prescription.id}
-                    className="bg-gray-100 p-3 rounded-md"
-                  >
-                    <Link
-                      to="/patient/review-pdf"
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      {prescription.name} - {prescription.date}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-bold">
-                Upcoming Tests
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {upcomingTests.map((test) => (
-                  <li key={test.id} className="bg-gray-100 p-3 rounded-md">
-                    {test.name} - {test.date}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <HumeAISection />
-        </div>
+        <HumeAISection />
 
         <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
           <DialogContent>
@@ -341,4 +249,4 @@ const PatientCalendarPage = () => {
   );
 };
 
-export default PatientCalendarPage;
+export default DoctorsPage;

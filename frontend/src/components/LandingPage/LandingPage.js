@@ -67,7 +67,7 @@ const LandingPage = () => {
           <Link to="/doctor/calendar">I am a Doctor</Link>
         </Button>
         <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
-          <Link to="/patient/calendar">I am a Patient</Link>
+          <Link to="/patient/dashboard">I am a Patient</Link>
         </Button>
       </div>
     </div>
