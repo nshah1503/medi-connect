@@ -1,174 +1,199 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "../Layout/Layout";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card.js";
 import { Button } from "../Button/Button.js";
+import InsuranceFeatures from "../Insurance/InsuranceFeatures.js";
+import axios from "axios";
+import { storage } from "../../firebase";
+import { ref, listAll, getMetadata } from "firebase/storage";
 
 const PatientCalendarPage = () => {
-  const [upcomingAppointments, setUpcomingAppointments] = useState([
-    { id: 1, date: "2024-10-21", time: "10:00 AM", doctor: "Dr. John Doe" },
-  ]);
-  const [prescriptions, setPrescriptions] = useState([
-    { id: 1, name: "Prescription 1", date: "2024-10-18" },
-    { id: 2, name: "Prescription 2", date: "2024-10-19" },
-  ]);
-  const [upcomingTests, setUpcomingTests] = useState([
-    { id: 1, name: "Blood Test", date: "2024-10-25" },
-    { id: 2, name: "X-Ray", date: "2024-10-27" },
-  ]);
+  const navigate = useNavigate();
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [files, setFiles] = useState([]);
+  const [upcomingTests, setUpcomingTests] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const timeSlots = [
-    "9:00 AM",
-    "10:00 AM",
-    "11:00 AM",
-    "2:00 PM",
-    "3:00 PM",
-    "4:00 PM",
-  ];
-
-  const [availableSlots, setAvailableSlots] = useState({});
+  const userId = "12345"; // Replace with dynamic user ID if needed
 
   useEffect(() => {
-    const newAvailableSlots = {};
-    weekDays.forEach((day) => {
-      const availableSlotsForDay = timeSlots
-        .sort(() => 0.5 - Math.random())
-        .slice(0, Math.floor(Math.random() * 3) + 1); // 1 to 3 slots per day
-      newAvailableSlots[day] = availableSlotsForDay;
-    });
-    setAvailableSlots(newAvailableSlots);
-  }, []);
+    const fetchPatientData = async () => {
+      try {
+        // Fetch booking data from the backend
+        const bookingResponse = await axios.get(`http://localhost:4000/fetch-bookings/${userId}`);
+        const { bookings } = bookingResponse.data;
 
-  const handleSlotSelection = (day, time) => {
-    setUpcomingAppointments([
-      ...upcomingAppointments,
-      {
-        id: Date.now(),
-        date: `2024-10-${20 + weekDays.indexOf(day)}`,
-        time,
-        doctor: "Dr. John Doe",
-      },
-    ]);
-  };
+        setUpcomingAppointments(bookings);
+
+        // Fetch additional patient information
+        const response = await axios.get(`http://localhost:4000/patients/${userId}`);
+        const { upcomingTests } = response.data;
+        setUpcomingTests(upcomingTests);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError(err.message);
+      }
+    };
+
+    const fetchFiles = async () => {
+      try {
+        const storageRef = ref(storage, "pdfs");
+        const fileList = await listAll(storageRef);
+
+        const filesWithMetadata = await Promise.all(
+          fileList.items.map(async (item) => {
+            const metadata = await getMetadata(item);
+            return {
+              name: item.name,
+              fullPath: item.fullPath,
+              type: metadata.contentType,
+              date: metadata.timeCreated,
+            };
+          })
+        );
+
+        // Filter out .placeholder and non-PDF files
+        const pdfFiles = filesWithMetadata.filter(
+          (file) =>
+            file.type === "application/pdf" && file.name !== ".placeholder"
+        );
+
+        setFiles(pdfFiles);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching files:", error);
+        setError(`Error fetching files: ${error.message}`);
+        setLoading(false);
+      }
+    };
+
+    fetchPatientData();
+    fetchFiles();
+  }, [userId]);
 
   const launchVideoCall = () => {
     try {
       window.open("https://doc-talk.daily.co/doc-talk", "_blank");
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error launching video call:", error);
+    }
   };
+
+  const handleBookAppointment = () => {
+    navigate("/patient/doctors");
+  };
+
+  if (loading) {
+    return <p>Loading your data...</p>;
+  }
+
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
+  }
 
   return (
     <Layout userType="patient">
       <div className="container mx-auto py-8">
-        <h1 className="text-3xl font-bold mb-8 text-red-700">
-          Book an Appointment
-        </h1>
+        <h1 className="text-3xl font-bold mb-8 text-red-700">Patient Dashboard</h1>
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">Weekly Calendar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-4">
-              {weekDays.map((day) => (
-                <div key={day} className="text-center">
-                  <div className="font-bold mb-2">{day}</div>
-                  <div className="grid grid-rows-5 gap-2">
-                    {[...Array(5)].map((_, index) => {
-                      const time =
-                        availableSlots[day] && availableSlots[day][index];
-                      return time ? (
-                        <Button
-                          key={`${day}-${time}`}
-                          onClick={() => handleSlotSelection(day, time)}
-                          className="w-full bg-green-700 hover:bg-green-800 text-white p-2 transition-all duration-200 ease-in-out group"
-                        >
-                          <span className="block group-hover:hidden">
-                            {time}
-                          </span>
-                          <span className="hidden group-hover:block">Book</span>
-                        </Button>
-                      ) : (
-                        <div
-                          key={`${day}-empty-${index}`}
-                          className="w-full h-10"
-                        ></div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <Button
+          onClick={handleBookAppointment}
+          className="bg-red-700 text-white p-4 rounded-lg mb-8 text-xl font-bold"
+        >
+          Book Appointment
+        </Button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Upcoming Appointments */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold">
-                Upcoming Appointments
-              </CardTitle>
+              <CardTitle className="text-xl font-bold">Upcoming Appointments</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2">
-                {upcomingAppointments.map((appointment) => (
-                  <li
-                    key={appointment.id}
-                    className="bg-gray-100 p-3 rounded-md"
-                  >
-                    <Link
-                      onClick={launchVideoCall}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      {appointment.date} - {appointment.time} with{" "}
-                      {appointment.doctor}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {upcomingAppointments.length > 0 ? (
+                <ul className="space-y-4">
+                  {upcomingAppointments.map((appointment) => (
+                    <li key={appointment.id} className="bg-gray-100 p-4 rounded-md">
+                      <p>
+                        <strong>Doctor:</strong> {appointment.doctorName}
+                      </p>
+                      <p>
+                        <strong>Specialty:</strong> {appointment.speciality}
+                      </p>
+                      <p>
+                        <strong>Date:</strong> {appointment.date}
+                      </p>
+                      <p>
+                        <strong>Time:</strong> {appointment.time}
+                      </p>
+                      <Button
+                        onClick={launchVideoCall}
+                        className="text-blue-600 hover:text-blue-800 mt-2"
+                      >
+                        Join Video Call
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No upcoming appointments.</p>
+              )}
             </CardContent>
           </Card>
 
+          {/* Prescriptions */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold">
-                Your Prescriptions
-              </CardTitle>
+              <CardTitle className="text-xl font-bold">Your Prescriptions</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2">
-                {prescriptions.map((prescription) => (
-                  <li
-                    key={prescription.id}
-                    className="bg-gray-100 p-3 rounded-md"
-                  >
-                    <Link
-                      to="/patient/review-pdf"
-                      className="text-blue-600 hover:text-blue-800"
+              {files.length > 0 ? (
+                <ul className="space-y-2">
+                  {files.map((file) => (
+                    <li
+                      key={file.fullPath}
+                      className="bg-gray-100 p-3 rounded-md hover:bg-gray-200 transition-colors"
                     >
-                      {prescription.name} - {prescription.date}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                      <Link
+                        to={`/patient/review-pdf/${encodeURIComponent(file.fullPath)}`}
+                        className="text-blue-600 hover:text-blue-800 block"
+                      >
+                        <span className="font-semibold">{file.name}</span> -{" "}
+                        {new Date(file.date).toLocaleDateString()}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No prescriptions available.</p>
+              )}
             </CardContent>
           </Card>
 
+          {/* Upcoming Tests */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold">
-                Upcoming Tests
-              </CardTitle>
+              <CardTitle className="text-xl font-bold">Upcoming Tests</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2">
-                {upcomingTests.map((test) => (
-                  <li key={test.id} className="bg-gray-100 p-3 rounded-md">
-                    {test.name} - {test.date}
-                  </li>
-                ))}
-              </ul>
+              {upcomingTests ? (
+                <p>{upcomingTests}</p>
+              ) : (
+                <p>No upcoming tests scheduled.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-bold">Insurance Features</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InsuranceFeatures />
             </CardContent>
           </Card>
         </div>

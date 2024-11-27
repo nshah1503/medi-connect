@@ -10,6 +10,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const FormData = require("form-data");
+const { Datastore } = require('@google-cloud/datastore');
 require("dotenv").config();
 
 const app = express();
@@ -25,14 +26,26 @@ app.use(cors());
 app.use(express.json());
 
 const apiKey = process.env.DAILY_API_KEY;
+const humeapiKey = process.env.HUME_API_KEY;
+const humeAPIEndpoint = process.env.HUME_API_ENDPOINT;
+
 
 // Initialize Firebase
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   storageBucket: "doctalk-9e28b.appspot.com",
+  //databaseURL: "https://insurancehospitals.firebaseio.com/"
+  databaseURL: "https://patient-mediconnect.firebaseio.com/"
 });
 
 const bucket = admin.storage().bucket();
+
+const db = admin.database();
+
+const datastore = new Datastore({
+  projectId: "doctalk-9e28b", // Replace with your project ID
+  keyFilename: "./firebase-adminsdk.json", // Path to your se
+});
 
 // Function to check Firebase connection
 async function checkFirebaseConnection() {
@@ -389,6 +402,159 @@ app.get("/api/check-call-and-recording", async (req, res) => {
   }
 });
 
+app.post('/hume-ai', async (req, res) => {
+  try {
+    // const apiKey = process.env.HUME_API_KEY; // Use backend environment variables
+    // const endpoint = process.env.HUME_API_ENDPOINT;
+
+    console.log("Request Body:", req.body);
+    const response = await axios.post(humeAPIEndpoint, req.body, {
+      headers: { Authorization: `Bearer ${humeapiKey}`, 'Content-Type': 'application/json' },
+    });
+
+    console.log("Response data", response.data);
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.post('/create-payment-intent', async (req, res) => {
+  const Stripe = require('stripe');
+const stripe = Stripe('sk_test_51QOEgjH9ehGELQwr2jk71FWQ6IdRNH82iI9k3QmwSQCHgltrTy750Mc9C2UbHl9x5QGunaFOymS4biULT6F4zGRY00svp2VhYP');
+  const { amount } = req.body;
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount * 100, // Convert to cents
+      currency: 'usd',
+    });
+
+    res.status(200).json({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.post('/empanelhospital', async (req, res) => {
+  const {
+    hospitalName,
+    rohiniId,
+    hospitalAddress,
+    pinCode,
+    contactPersonName,
+    contactPersonEmail,
+    contactPersonPhone,
+  } = req.body;
+
+  // Basic validation (optional but recommended)
+  if (!hospitalName || !hospitalAddress || !pinCode) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+  // Structure the hospital data
+  const hospitalData = {
+    hospitalName,
+    rohiniId: rohiniId || null,
+    hospitalAddress,
+    pinCode,
+    contactPersonName,
+    contactPersonEmail,
+    contactPersonPhone,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(), // Alternatively, use Date.now()
+  };
+
+  try {
+    // Generate a new unique key under 'insurancehospitals/hospitals'
+    const hospitalsRef = db.ref('insurancehospitals/hospitals');
+    const newHospitalRef = hospitalsRef.push(); // Creates a unique key
+    await newHospitalRef.set(hospitalData);
+
+    res.status(200).json({ message: 'Hospital data successfully stored.', id: newHospitalRef.key });
+  } catch (error) {
+    console.error('Error storing hospital data:', error);
+    res.status(500).json({ message: 'Failed to store hospital data.' });
+  }
+});
+
+
+// API Endpoint to Fetch Patient Data
+// server.js (continued)
+
+// GET Route: Fetch Patient Data
+app.get('/patients/:id', async (req, res) => {
+  const patientId = req.params.id;
+  console.log("Patient ID:", patientId); // Log patient ID for debugging
+
+  try {
+    // Correct path reference
+    const patientRef = db.ref(`/${patientId}`);
+    console.log("Firebase reference path:", patientRef.toString()); // Debug path
+
+    // Fetch data
+    const snapshot = await patientRef.once('value');
+    console.log("Snapshot:", snapshot.val()); // Log the fetched data
+
+    const data = snapshot.val();
+    if (!data) {
+      return res.status(404).json({ message: 'Patient data not found.' });
+    }
+
+    // Construct response
+    const responseObject = {
+      id: patientId,
+      prescriptions: data.prescriptions || "No prescriptions available.",
+      upcomingAppointments: data.upcomingAppointments || "No appointments scheduled.",
+      upcomingTests: data.upcomingTests || "No upcoming tests scheduled."
+    };
+
+    res.status(200).json(responseObject);
+  } catch (error) {
+    console.error('Error fetching patient data:', error);
+    res.status(500).json({ message: 'Failed to fetch patient data.' });
+  }
+});
+
+app.post("/store-booking", async (req, res) => {
+  const { userId, doctorName, speciality, date, time, paymentDetails } = req.body;
+  console.log("Bodyyyyyy", req.body);
+  //let userId = "12345";
+
+  // if (!userId || !doctorName || !speciality || !date || !time || !paymentDetails) {
+  //   return res.status(400).json({ message: "Missing required fields." });
+  // }
+
+  try {
+    const appointmentId = `appointment_${Date.now()}`;
+    console.log("Appointment ID ", appointmentId);
+    const bookingData = {
+      userId: 12345,
+      doctorName,
+      speciality,
+      date,
+      time,
+      payment: paymentDetails,
+    };
+
+    console.log("Booking data", bookingData);
+
+    // const appointmentRef = db.ref(`${userId}/${appointmentId}`);
+    const appointmentRef = db.ref(`12345/${appointmentId}`);
+    console.log("Appointment ref", appointmentRef);
+    await appointmentRef.set(bookingData);
+
+    res.status(200).json({
+      message: "Booking data stored successfully.",
+      appointmentId,
+    });
+  } catch (error) {
+    console.error("Error storing booking data:", error);
+    res.status(500).json({ message: "Failed to store booking data.", error });
+  }
+});
+
 async function sendFileToFlaskServer(filePath) {
   const form = new FormData();
   form.append("audio", fs.createReadStream(filePath));
@@ -409,5 +575,36 @@ async function sendFileToFlaskServer(filePath) {
     throw error;
   }
 }
+
+
+
+app.get("/fetch-bookings/:userId", async (req, res) => {
+  console.log(`Fetching bookings for userId: ${req.params.userId}`); // Debug log
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const userRef = db.ref(`/${userId}`);
+    const snapshot = await userRef.once("value");
+
+    if (!snapshot.exists()) {
+      return res.status(404).json({ message: "No bookings found for this user." });
+    }
+
+    const bookings = Object.entries(snapshot.val()).map(([id, details]) => ({
+      id,
+      ...details,
+    }));
+
+    res.status(200).json({ bookings });
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    res.status(500).json({ message: "Failed to fetch bookings.", error });
+  }
+});
+
 
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
