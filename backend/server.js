@@ -517,6 +517,44 @@ app.get('/patients/:id', async (req, res) => {
   }
 });
 
+app.post("/store-booking", async (req, res) => {
+  const { userId, doctorName, speciality, date, time, paymentDetails } = req.body;
+  console.log("Bodyyyyyy", req.body);
+  //let userId = "12345";
+
+  // if (!userId || !doctorName || !speciality || !date || !time || !paymentDetails) {
+  //   return res.status(400).json({ message: "Missing required fields." });
+  // }
+
+  try {
+    const appointmentId = `appointment_${Date.now()}`;
+    console.log("Appointment ID ", appointmentId);
+    const bookingData = {
+      userId: 12345,
+      doctorName,
+      speciality,
+      date,
+      time,
+      payment: paymentDetails,
+    };
+
+    console.log("Booking data", bookingData);
+
+    // const appointmentRef = db.ref(`${userId}/${appointmentId}`);
+    const appointmentRef = db.ref(`12345/${appointmentId}`);
+    console.log("Appointment ref", appointmentRef);
+    await appointmentRef.set(bookingData);
+
+    res.status(200).json({
+      message: "Booking data stored successfully.",
+      appointmentId,
+    });
+  } catch (error) {
+    console.error("Error storing booking data:", error);
+    res.status(500).json({ message: "Failed to store booking data.", error });
+  }
+});
+
 async function sendFileToFlaskServer(filePath) {
   const form = new FormData();
   form.append("audio", fs.createReadStream(filePath));
@@ -537,5 +575,36 @@ async function sendFileToFlaskServer(filePath) {
     throw error;
   }
 }
+
+
+
+app.get("/fetch-bookings/:userId", async (req, res) => {
+  console.log(`Fetching bookings for userId: ${req.params.userId}`); // Debug log
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const userRef = db.ref(`/${userId}`);
+    const snapshot = await userRef.once("value");
+
+    if (!snapshot.exists()) {
+      return res.status(404).json({ message: "No bookings found for this user." });
+    }
+
+    const bookings = Object.entries(snapshot.val()).map(([id, details]) => ({
+      id,
+      ...details,
+    }));
+
+    res.status(200).json({ bookings });
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    res.status(500).json({ message: "Failed to fetch bookings.", error });
+  }
+});
+
 
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
