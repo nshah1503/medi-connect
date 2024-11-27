@@ -3,9 +3,10 @@ import {
   BrowserRouter as Router,
   Route,
   Routes,
-  Navigate,
 } from "react-router-dom";
 import LandingPage from "./components/LandingPage/LandingPage";
+import DoctorAuth from "./components/Auth/docAuth";
+import PatientAuth from "./components/Auth/patientAuth";
 import CalendarPage from "./components/CalendarPage/CalendarPage";
 import PatientCalendarPage from "./components/PatientCalendarPage/PatientCalendarPage";
 import VideoChat from "./components/VideoChat/VideoChat";
@@ -16,32 +17,150 @@ import VideoCallPage from "./components/VideoCall/VideoCall";
 import PaymentPage from "./components/Payment/Payment";
 import ECard from "./components/Insurance/ECard";
 import Claims from "./components/Insurance/Claims";
-import "./index.css";
 import EmpanelHospital from "./components/Insurance/EmpanelHospital";
 import Profile from "./components/Layout/Profile";
+import RequireAuth from "./components/Auth/requireAuth"; // Import the RequireAuth HOC
+import RedirectIfAuth from "./components/Auth/redirectIfAuth"; // Import the RedirectIfAuth HOC
+import "./index.css";
 
 const App = () => {
   return (
     <Router>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
-        {/* <Route path="/:userType" element={<LandingPage />} /> */}
-        <Route path="/doctor/calendar" element={<CalendarPage />} />
-        <Route path="/patient/booking" element={<DoctorsPage />} />
-        <Route path="/patient/dashboard" element={<PatientCalendarPage />} />
-        {/* <Route path="/doctor/video-chat" element={<VideoChat />} />
-        <Route path="/patient/video-chat" element={<VideoChat />} /> */}
-        <Route path="/doctor/video-chat" element={<VideoChatNew />} />
-        <Route path="/patient/video-chat" element={<VideoChatNew />} />
-        <Route path="/doctor/video-call" element={<VideoCallPage />} />
-        <Route path="/patient/video-call" element={<VideoCallPage />} />
-        <Route path="/doctor/review-pdf/:filePath" element={<ReviewPDF />} />
-        <Route path="/patient/review-pdf/:filePath" element={<ReviewPDF />} />
-        <Route path="/payment" element={<PaymentPage/>}/>
-        <Route path="/ecard" element={<ECard/>}/>
-        <Route path="/claims" element={<Claims/>}/>
-        <Route path="/empanelhospital" element={<EmpanelHospital/>}/>
-        <Route path="/profile" element={<Profile/>}/>
+
+        {/* Redirect logged-in users from auth routes */}
+        <Route
+          path="/doctor/auth"
+          element={
+            <RedirectIfAuth>
+              <DoctorAuth />
+            </RedirectIfAuth>
+          }
+        />
+        <Route
+          path="/patient/auth"
+          element={
+            <RedirectIfAuth>
+              <PatientAuth />
+            </RedirectIfAuth>
+          }
+        />
+
+        {/* Protected Routes */}
+        <Route
+          path="/doctor/calendar"
+          element={
+            <RequireAuth>
+              <CalendarPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/patient/booking"
+          element={
+            <RequireAuth>
+              <DoctorsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/patient/dashboard"
+          element={
+            <RequireAuth>
+              <PatientCalendarPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/doctor/video-chat"
+          element={
+            <RequireAuth>
+              <VideoChatNew />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/patient/video-chat"
+          element={
+            <RequireAuth>
+              <VideoChatNew />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/doctor/video-call"
+          element={
+            <RequireAuth>
+              <VideoCallPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/patient/video-call"
+          element={
+            <RequireAuth>
+              <VideoCallPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/doctor/review-pdf/:filePath"
+          element={
+            <RequireAuth>
+              <ReviewPDF />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/patient/review-pdf/:filePath"
+          element={
+            <RequireAuth>
+              <ReviewPDF />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/payment"
+          element={
+            <RequireAuth>
+              <PaymentPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ecard"
+          element={
+            <RequireAuth>
+              <ECard />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/claims"
+          element={
+            <RequireAuth>
+              <Claims />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/empanelhospital"
+          element={
+            <RequireAuth>
+              <EmpanelHospital />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <Profile />
+            </RequireAuth>
+          }
+        />
       </Routes>
     </Router>
   );
