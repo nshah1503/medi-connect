@@ -63,12 +63,19 @@ const LandingPage = () => {
         Our AI assistant automates consultations, diagnoses, and appointments—saving time and improving patient care for doctors. Patients can connect with top doctors and receive care from the comfort of their home.
       </p>
       <div className="flex space-x-4">
-        <Button size="lg" className="bg-red-700 hover:bg-red-800 text-white">
+        {/* <Button size="lg" className="bg-red-700 hover:bg-red-800 text-white">
           <Link to="/doctor/calendar">I am a Doctor</Link>
         </Button>
         <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
           <Link to="/patient/dashboard">I am a Patient</Link>
+        </Button> */}
+
+        <Button size="lg" className="bg-red-700 hover:bg-red-800 text-white">
+          <Link to="/doctor/auth">I am a Doctor</Link>
         </Button>
+        <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Link to="/patient/auth">I am a Patient</Link>
+        </Button> 
       </div>
     </div>
     <div className="w-1/2">

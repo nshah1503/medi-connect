@@ -38,7 +38,7 @@ const HumeAISection = () => {
   }, []);
 
   return (
-    <Layout>
+    <div>
       <div className="mx-auto px-4 py-8">
         <div className="mt-12 bg-blue-50 p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4 text-blue-700">
@@ -91,7 +91,7 @@ const HumeAISection = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

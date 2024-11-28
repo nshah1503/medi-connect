@@ -80,7 +80,7 @@ const PaymentForm = ({ amount }) => {
         setError(null);
         setProcessing(false);
         setTimeout(() => {
-            navigate('/patient/calendar'); // Redirect to the Patient Calendar page
+            navigate('/patient/dashboard'); // Redirect to the Patient Calendar page
           }, 5000); 
       }
     } catch (err) {

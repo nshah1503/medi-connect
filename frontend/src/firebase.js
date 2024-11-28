@@ -2,10 +2,15 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAuth } from "firebase/auth";
+import { getDatabase } from "firebase/database";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0m5k7H46-Hv0guud2sUAwbOBTKdQJ0Uc",
   authDomain: "doctalk-9e28b.firebaseapp.com",
+  // databaseURL: "https://doctalk-9e28b-default-rtdb.firebaseio.com",
+  databaseURL: "https://mediconnect.firebaseio.com",
   projectId: "doctalk-9e28b",
   storageBucket: "doctalk-9e28b.appspot.com",
   messagingSenderId: "563035266383",
@@ -16,7 +21,8 @@ const firebaseConfig = {
 // Replace the placeholder values above with your actual Firebase configuration
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const auth = getAuth(app);
+const db = getDatabase(app);
 const storage = getStorage(app);
 
-export { app, db, storage };
+export { app, auth, db, storage };

@@ -82,7 +82,7 @@ const PatientCalendarPage = () => {
   };
 
   const handleBookAppointment = () => {
-    navigate("/patient/doctors");
+    navigate("/patient/booking");
   };
 
   if (loading) {

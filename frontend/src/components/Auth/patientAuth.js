@@ -12,6 +12,8 @@ import Layout from "../Layout/Layout";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card";
 import { Button } from "../Button/Button";
 import { useNavigate } from "react-router-dom";
+import { get, child } from "firebase/database";
+
 
 const PatientAuth = () => {
   const [isSignup, setIsSignup] = useState(true); // Toggle between Login and Signup
@@ -55,7 +57,10 @@ const PatientAuth = () => {
 
   const registerPatient = async (userId, patientData) => {
     try {
-      await set(ref(db, `users/patients/${userId}`), patientData);
+      await set(ref(db, `users/patients/${userId}`), {
+        ...patientData,
+        role: "patient", // Add the role explicitly
+      });
       console.log("Patient data saved successfully.");
     } catch (error) {
       console.error("Error saving patient data:", error);
@@ -73,7 +78,7 @@ const PatientAuth = () => {
           formData.password
         );
         const userId = userCredential.user.uid;
-
+  
         // Prepare patient data
         const patientData = {
           firstName: formData.firstName,
@@ -84,21 +89,38 @@ const PatientAuth = () => {
           email: formData.email,
           address: formData.address,
           insurance: isOtherInsurance ? formData.otherInsurance : formData.insurance,
+          role: "patient", // Assign role explicitly
         };
-
+  
         // Save data to database
         await registerPatient(userId, patientData);
         navigate("/patient/dashboard"); // Redirect to patient dashboard
       } else {
         // Log in user
-        await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        navigate("/patient/dashboard"); // Redirect to patient dashboard
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          formData.email,
+          formData.password
+        );
+        const userId = userCredential.user.uid;
+  
+        // Verify the role from the database
+        const dbRef = ref(db, `users/patients/${userId}`);
+        const snapshot = await get(dbRef);
+  
+        if (snapshot.exists() && snapshot.val().role === "patient") {
+          navigate("/patient/dashboard"); // Redirect to patient dashboard
+        } else {
+          alert("This account is not registered as a patient.");
+          throw new Error("Invalid patient login.");
+        }
       }
     } catch (error) {
-      console.error("Error:", error);
-      alert(error.code || error.message); // Optionally keep error alerts
+      console.error("Error:", error.message);
+      alert(error.message); // Optionally keep error alerts
     }
   };
+  
 
   const handleGoogleAuth = async (e) => {
     e.preventDefault(); // Prevent form submission default behavior

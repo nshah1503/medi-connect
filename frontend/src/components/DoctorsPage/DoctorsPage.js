@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../Layout/Layout";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card.js";
 import { Button } from "../Button/Button.js";
-import HumeAISection from '../DoctorsPage/HumeAISection';
+// import HumeAISection from '.HumeAISection./DoctorsPage/';
+import HumeAISection from '../HumeAI/HumeAISection.js'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from "../Dialogue/Dialogue.js";
+} from "../Dialog/Dialog.js";
 
 const DoctorsPage = () => {
   const navigate = useNavigate();

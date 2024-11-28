@@ -1,11 +1,25 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebase"; // Ensure this points to your firebase.js
 
 const MyAccount = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const toggleDropdown = () => setIsOpen(!isOpen);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      alert("Logged out successfully!");
+      navigate("/"); // Redirect to the login page after logout
+    } catch (error) {
+      console.error("Error logging out:", error);
+      alert("Failed to log out. Please try again.");
+    }
+  };
 
   return (
     <div className="relative">
@@ -25,14 +39,15 @@ const MyAccount = () => {
           >
             My Profile
           </Link>
-          {/* Add more dropdown items as needed */}
-          <Link
-            to="/logout"
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-            onClick={() => setIsOpen(false)}
+          <button
+            className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+            onClick={() => {
+              setIsOpen(false);
+              handleLogout();
+            }}
           >
             Logout
-          </Link>
+          </button>
         </div>
       )}
     </div>

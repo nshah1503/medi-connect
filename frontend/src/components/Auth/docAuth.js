@@ -12,6 +12,7 @@ import Layout from "../Layout/Layout";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card";
 import { Button } from "../Button/Button";
 import { useNavigate } from "react-router-dom";
+import { get, child } from "firebase/database";
 
 const DoctorAuth = () => {
   const [isSignup, setIsSignup] = useState(true); // Toggle between Login and Signup
@@ -52,7 +53,10 @@ const DoctorAuth = () => {
 
   const registerDoctor = async (userId, doctorData) => {
     try {
-      await set(ref(db, `users/doctors/${userId}`), doctorData);
+      await set(ref(db, `users/doctors/${userId}`), {
+        ...doctorData,
+        role: "doctor", // Add the role explicitly
+      });
       console.log("Doctor data saved successfully.");
     } catch (error) {
       console.error("Error saving doctor data:", error);
@@ -70,7 +74,7 @@ const DoctorAuth = () => {
           formData.password
         );
         const userId = userCredential.user.uid;
-
+  
         // Prepare doctor data to store in the database
         const doctorData = {
           firstName: formData.firstName,
@@ -82,21 +86,38 @@ const DoctorAuth = () => {
           phone: formData.phone,
           email: formData.email,
           address: formData.address,
+          role: "doctor", // Add role explicitly
         };
-
+  
         // Save doctor data to the database
         await registerDoctor(userId, doctorData);
         navigate("/doctor/calendar"); // Redirect to doctor calendar
       } else {
         // Log in the user
-        await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        navigate("/doctor/calendar"); // Redirect to doctor calendar
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          formData.email,
+          formData.password
+        );
+        const userId = userCredential.user.uid;
+  
+        // Verify the role from the database
+        const dbRef = ref(db, `users/doctors/${userId}`);
+        const snapshot = await get(dbRef);
+  
+        if (snapshot.exists() && snapshot.val().role === "doctor") {
+          navigate("/doctor/calendar"); // Redirect to doctor calendar
+        } else {
+          alert("This account is not registered as a doctor.");
+          throw new Error("Invalid doctor login.");
+        }
       }
     } catch (error) {
       console.error("Error:", error.message);
       alert(error.message); // Optionally, enhance error handling as needed
     }
   };
+  
 
   const handleGoogleAuth = async (e) => {
     e.preventDefault(); // Prevent default form submission behavior
