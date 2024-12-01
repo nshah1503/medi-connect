@@ -718,6 +718,9 @@ app.post("/book-and-store", async (req, res) => {
 
 
 app.post("/create-payment-intent", async (req, res) => {
+  const Stripe = require('stripe');
+  const stripe = Stripe('sk_test_51QOEgjH9ehGELQwr2jk71FWQ6IdRNH82iI9k3QmwSQCHgltrTy750Mc9C2UbHl9x5QGunaFOymS4biULT6F4zGRY00svp2VhYP');
+
   const { amount, bookingData } = req.body;
 
   try {
@@ -756,7 +759,7 @@ app.post("/confirm-payment", async (req, res) => {
 
     if (paymentIntent.status === "succeeded") {
       // Store booking in patients table
-      const { patientId, doctorId, doctorName, specialty, date, time, consultationFees } = bookingData;
+      const { patientId, doctorId, doctorName, specialty, date, time, consultationFee } = bookingData;
 
       // Store in patients table
       const patientBookingRef = db.ref(`users/patients/${patientId}/appointments`);
@@ -767,7 +770,7 @@ app.post("/confirm-payment", async (req, res) => {
         specialty,
         date,
         time,
-        consultationFees,
+        consultationFee,
         status: "Confirmed",
       });
 
@@ -962,16 +965,36 @@ app.get('/appointments/patient/:patientId', async (req, res) => {
       return res.status(200).json({ message: 'No appointments found.', appointments: [] });
     }
 
-    const appointments = Object.values(appointmentsSnapshot.val());
-    res.status(200).json({ appointments });
+    const appointments = appointmentsSnapshot.val();
+    const appointmentList = await Promise.all(
+      Object.values(appointments).map(async (appointment) => {
+        // Fetch doctor details
+        const doctorSnapshot = await db
+          .ref(`users/doctors/${appointment.doctorId}`)
+          .once('value');
+
+        if (!doctorSnapshot.exists()) {
+          console.warn(`Doctor with ID ${appointment.doctorId} not found.`);
+          return { ...appointment, doctorName: 'Unknown', specialty: 'Unknown' };
+        }
+
+        const doctorData = doctorSnapshot.val();
+
+        // Combine doctor details with appointment
+        return {
+          ...appointment,
+          doctorName: `${doctorData.firstName} ${doctorData.lastName}`,
+          specialty: doctorData.specialty,
+        };
+      })
+    );
+
+    res.status(200).json({ appointments: appointmentList });
   } catch (error) {
     console.error('Error fetching appointments:', error);
     res.status(500).json({ error: 'Failed to fetch appointments.' });
   }
 });
-
-
-
 
 
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));

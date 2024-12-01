@@ -18,8 +18,8 @@ const PaymentForm = ({ bookingData }) => {
   const [cardType, setCardType] = useState("");
 
   // Ensure consultationFees is a number and handle undefined gracefully
-  const consultationFees = typeof bookingData.consultationFees === "number" ? bookingData.consultationFees : parseFloat(bookingData.consultationFees) || 0;
-  console.log("ConsultationFees", bookingData);
+  const consultationFee = typeof bookingData.consultationFee === "number" ? bookingData.consultationFee : parseFloat(bookingData.consultationFee) || 0;
+  console.log("ConsultationFee", bookingData);
   //parseFloat(bookingData?.consultationFees || 0);
   //const numericAmount = typeof bookingData.consultationFees === "number" ? bookingData.consultationFees : parseFloat(bookingData.consultationFees) || 0;
 
@@ -70,7 +70,7 @@ const PaymentForm = ({ bookingData }) => {
     }
 
     try {
-      const clientSecret = await fetchPaymentIntent(consultationFees);
+      const clientSecret = await fetchPaymentIntent(consultationFee);
 
       const result = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
@@ -110,7 +110,7 @@ const PaymentForm = ({ bookingData }) => {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="bg-gray-100 p-4 rounded-md">
         <h3 className="font-bold mb-2">Amount to Pay</h3>
-        <p className="text-2xl font-bold text-green-600">${consultationFees.toFixed(2)}</p>
+        <p className="text-2xl font-bold text-green-600">${consultationFee.toFixed(2)}</p>
       </div>
       <div className="space-y-4">
         <div>
@@ -185,7 +185,7 @@ const PaymentForm = ({ bookingData }) => {
           processing || !stripe ? "bg-gray-300 cursor-not-allowed" : "bg-red-700 text-white hover:bg-red-800"
         }`}
       >
-        {processing ? "Processing..." : `Pay $${consultationFees.toFixed(2)}`}
+        {processing ? "Processing..." : `Pay $${consultationFee.toFixed(2)}`}
       </Button>
     </form>
   );
