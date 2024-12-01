@@ -29,8 +29,9 @@ const PatientCalendarPage = () => {
       try {
         // Fetch upcoming appointments with doctor details
         const appointmentsResponse = await axios.get(
-          `http://localhost:4000/appointments/${patientId}`
+          `http://localhost:4000/appointments/patient/${patientId}`
         );
+        console.log("Appointment details", appointmentsResponse);
         setUpcomingAppointments(appointmentsResponse.data.appointments);
         console.log("Appointment data in patient dashboard", appointmentsResponse.data.appointments);
 

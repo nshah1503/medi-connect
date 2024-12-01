@@ -54,7 +54,7 @@ const DoctorProfile = () => {
             specialty: data.specialty || "",
             designation: data.designation || "",
             experience: data.experience || "",
-            consultationFees: data.consultationFees || "",
+            consultationFee: data.consultationFee || "",
             clinicAddress: data.clinicAddress || "",
             hospital: data.hospital || "",
             phone: data.phone || "",
@@ -96,7 +96,7 @@ const DoctorProfile = () => {
         specialty: formData.specialty,
         designation: formData.designation,
         experience: formData.experience,
-        consultationFees: formData.consultationFees,
+        consultationFee: formData.consultationFee,
         clinicAddress: formData.clinicAddress,
         hospital: formData.hospital,
         phone: formData.phone,
@@ -224,18 +224,18 @@ const DoctorProfile = () => {
               )}
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Consultation Fees</p>
+              <p className="text-sm font-medium text-gray-500">Consultation Fee</p>
               {isEditing ? (
                 <input
                   type="number"
-                  name="consultationFees"
-                  value={formData.consultationFees}
+                  name="consultationFee"
+                  value={formData.consultationFee}
                   onChange={handleInputChange}
                   className="border border-gray-300 p-2 rounded-md w-full"
                   required
                 />
               ) : (
-                <p className="text-gray-700">${doctorData.consultationFees}</p>
+                <p className="text-gray-700">${doctorData.consultationFee}</p>
               )}
             </div>
             <div>

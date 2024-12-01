@@ -23,6 +23,7 @@ import RequireAuth from "./components/Auth/requireAuth"; // Import the RequireAu
 import RedirectIfAuth from "./components/Auth/redirectIfAuth"; // Import the RedirectIfAuth HOC
 import "./index.css";
 import DoctorProfile from "./components/Layout/DoctorProfile";
+import DoctorSetup from "./components/Auth/docSetup";
 
 const App = () => {
   return (
@@ -51,7 +52,7 @@ const App = () => {
 
         {/* Protected Routes */}
         <Route
-          path="/doctor/calendar"
+          path="/doctor/dashboard"
           element={
             <RequireAuth>
               <CalendarPage />
@@ -167,6 +168,14 @@ const App = () => {
           element={
             <RequireAuth>
               <DoctorProfile />
+            </RequireAuth>
+          }
+        />
+                <Route
+          path="doctor/setup-availability"
+          element={
+            <RequireAuth>
+              <DoctorSetup />
             </RequireAuth>
           }
         />
