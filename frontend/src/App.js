@@ -22,6 +22,7 @@ import Profile from "./components/Layout/Profile";
 import RequireAuth from "./components/Auth/requireAuth"; // Import the RequireAuth HOC
 import RedirectIfAuth from "./components/Auth/redirectIfAuth"; // Import the RedirectIfAuth HOC
 import "./index.css";
+import DoctorProfile from "./components/Layout/DoctorProfile";
 
 const App = () => {
   return (
@@ -158,6 +159,14 @@ const App = () => {
           element={
             <RequireAuth>
               <Profile />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="doctor/profile"
+          element={
+            <RequireAuth>
+              <DoctorProfile />
             </RequireAuth>
           }
         />

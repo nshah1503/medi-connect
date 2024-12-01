@@ -94,6 +94,9 @@ const PatientAuth = () => {
   
         // Save data to database
         await registerPatient(userId, patientData);
+        localStorage.setItem("patientId", userId);
+        console.log("Patient Id after registering patient", userId);
+
         navigate("/patient/dashboard"); // Redirect to patient dashboard
       } else {
         // Log in user
@@ -109,6 +112,8 @@ const PatientAuth = () => {
         const snapshot = await get(dbRef);
   
         if (snapshot.exists() && snapshot.val().role === "patient") {
+          localStorage.setItem("patientId", userId);
+          console.log("Patient Id before navigating to dashboard", userId);
           navigate("/patient/dashboard"); // Redirect to patient dashboard
         } else {
           alert("This account is not registered as a patient.");
