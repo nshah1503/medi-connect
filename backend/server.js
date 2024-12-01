@@ -35,7 +35,7 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   storageBucket: "doctalk-9e28b.appspot.com",
   //databaseURL: "https://insurancehospitals.firebaseio.com/"
-  databaseURL: "https://patient-mediconnect.firebaseio.com/"
+  databaseURL: "https://mediconnect.firebaseio.com/"
 });
 
 const bucket = admin.storage().bucket();
@@ -490,7 +490,7 @@ app.get('/patients/:id', async (req, res) => {
 
   try {
     // Correct path reference
-    const patientRef = db.ref(`/${patientId}`);
+    const patientRef = db.ref(`users/patients/${patientId}`);
     console.log("Firebase reference path:", patientRef.toString()); // Debug path
 
     // Fetch data
@@ -505,6 +505,8 @@ app.get('/patients/:id', async (req, res) => {
     // Construct response
     const responseObject = {
       id: patientId,
+      firstName: data.firstName,
+      lastName: data.lastName,
       prescriptions: data.prescriptions || "No prescriptions available.",
       upcomingAppointments: data.upcomingAppointments || "No appointments scheduled.",
       upcomingTests: data.upcomingTests || "No upcoming tests scheduled."
@@ -587,7 +589,7 @@ app.get("/fetch-bookings/:userId", async (req, res) => {
   }
 
   try {
-    const userRef = db.ref(`/${userId}`);
+    const userRef = db.ref(`users/patients/${userId}`);
     const snapshot = await userRef.once("value");
 
     if (!snapshot.exists()) {
@@ -605,6 +607,458 @@ app.get("/fetch-bookings/:userId", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch bookings.", error });
   }
 });
+
+app.get("/specialties", async (req, res) => {
+  console.log("Inside specialties API");
+  try {
+    const doctorsRef = db.ref("users/doctors");
+    console.log("DoctorsRef Path:", doctorsRef.toString());
+
+    const snapshot = await doctorsRef.once("value");
+    console.log("Snapshot Exists:", snapshot.exists());
+
+    if (!snapshot.exists()) {
+      console.log("No data found at the specified path.");
+      return res.status(404).json({ message: "No doctors found." });
+    }
+
+    const doctors = snapshot.val();
+    console.log("Doctors Data Retrieved:", doctors);
+
+    const specialties = new Set(Object.values(doctors).map((doctor) => doctor.specialty));
+    console.log("Specialties:", specialties);
+
+    res.status(200).json([...specialties]); // Convert Set to Array
+  } catch (error) {
+    console.error("Error fetching specialties:", error);
+    res.status(500).json({ message: "Error fetching specialties." });
+  }
+});
+
+
+app.get("/doctors", async (req, res) => {
+  const { category } = req.query; // Example: /doctors?category=cardiology
+
+  try {
+    const doctorsRef = db.ref("users/doctors");
+    const snapshot = await doctorsRef.once("value");
+
+    if (!snapshot.exists()) {
+      return res.status(404).json({ message: "No doctors found." });
+    }
+
+    const doctors = snapshot.val();
+    const filteredDoctors = category
+      ? Object.values(doctors).filter((doctor) => doctor.specialty === category)
+      : Object.values(doctors); // Return all if no category provided
+
+    res.status(200).json(filteredDoctors);
+  } catch (error) {
+    console.error("Error fetching doctors:", error);
+    res.status(500).json({ message: "Error fetching doctors." });
+  }
+});
+
+app.get("/availability/:doctorId", async (req, res) => {
+  const { doctorId } = req.params;
+
+  console.log("Doctorid", doctorId);
+
+  try {
+    const availabilityRef = db.ref(`users/doctors/${doctorId}/availability`);
+    const snapshot = await availabilityRef.once("value");
+
+    if (!snapshot.exists()) {
+      return res.status(404).json({ message: "No availability found for this doctor." });
+    }
+
+    const availability = snapshot.val();
+    res.status(200).json(availability);
+  } catch (error) {
+    console.error("Error fetching availability:", error);
+    res.status(500).json({ message: "Error fetching availability." });
+  }
+});
+
+app.get("/doctors-by-specialty", async (req, res) => {
+  try {
+    const { specialty } = req.query;
+    console.log("specialty", specialty);
+
+    console.log("Specialty requested:", specialty);
+
+    // Validate the specialty query parameter
+    if (!specialty) {
+      return res.status(400).json({ message: "Specialty is required." });
+    }
+
+    // Reference the doctors node in Firebase
+    const doctorsRef = db.ref("users/doctors");
+    console.log("Doctorsref", doctorsRef.toString);
+    const snapshot = await doctorsRef.once("value");
+
+    console.log("Snapshot exists:", snapshot.exists());
+
+    // If no data is found, return a 404
+    if (!snapshot.exists()) {
+      return res.status(404).json({ message: "No doctors found in the database." });
+    }
+
+    const doctors = snapshot.val();
+
+    console.log("All doctors:", doctors);
+
+    // Filter doctors by the specialty field
+    const filteredDoctors = Object.keys(doctors)
+      .map((key) => ({
+        doctorId: key,
+        ...doctors[key],
+      }))
+      .filter((doctor) => {
+        console.log(`Checking doctor ${doctor.firstName} ${doctor.lastName} with specialty ${doctor.specialty}`);
+        return doctor.specialty === specialty;
+      });
+
+    console.log("Filtered doctors:", filteredDoctors);
+
+    // If no doctors match the specialty, return a 404
+    if (filteredDoctors.length === 0) {
+      return res.status(404).json({ message: "No doctors found for this specialty." });
+    }
+
+    // Return the filtered doctors
+    res.status(200).json(filteredDoctors);
+  } catch (error) {
+    console.error("Error fetching doctors by specialty:", error);
+    res.status(500).json({ message: "Error fetching doctors by specialty." });
+  }
+});
+
+
+// Mark a time slot as booked
+app.post("/book", async (req, res) => {
+  const { doctorId, date, time } = req.body;
+
+  try {
+    const slotRef = db.ref(`doctors/${doctorId}/availability/${date}/${time}`);
+    await slotRef.set(false); // Mark the slot as unavailable
+
+    res.status(200).json({ message: "Booking successful!" });
+  } catch (error) {
+    console.error("Error booking slot:", error);
+    res.status(500).json({ message: "Error booking slot." });
+  }
+});
+
+
+app.post("/book-and-store", async (req, res) => {
+  const {
+    doctorId,
+    userId,
+    doctorName,
+    speciality,
+    date,
+    time,
+    paymentDetails,
+  } = req.body;
+
+  // Validate input
+  if (!doctorId || !userId || !doctorName || !speciality || !date || !time || !paymentDetails) {
+    return res.status(400).json({ message: "Missing required fields." });
+  }
+
+  try {
+    // Step 1: Mark the doctor's time slot as unavailable
+    const slotRef = db.ref(`user/doctors/${doctorId}/availability/${date}/${time}`);
+    await slotRef.set(false); // Mark the slot as unavailable
+
+    // Step 2: Store the booking data
+    const appointmentId = `appointment_${Date.now()}`;
+    const bookingData = {
+      userId,
+      doctorName,
+      speciality,
+      date,
+      time,
+      payment: paymentDetails,
+    };
+
+    // Store in user-specific node
+    const appointmentRef = db.ref(`${userId}/${appointmentId}`);
+    await appointmentRef.set(bookingData);
+
+    // Respond with success
+    res.status(200).json({
+      message: "Booking confirmed and data stored successfully.",
+      appointmentId,
+    });
+  } catch (error) {
+    console.error("Error during booking process:", error);
+    res.status(500).json({ message: "Error processing booking.", error });
+  }
+});
+
+
+app.post("/create-payment-intent", async (req, res) => {
+  const { amount, bookingData } = req.body;
+
+  try {
+    // Create a PaymentIntent with Stripe
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount, // Amount in cents
+      currency: "usd",
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    // Store booking and update availability after payment confirmation
+    paymentIntent.metadata = { ...bookingData };
+
+    // Return client secret and booking data for client-side confirmation
+    res.status(200).json({
+      clientSecret: paymentIntent.client_secret,
+      bookingData,
+    });
+  } catch (error) {
+    console.error("Error creating payment intent:", error);
+    res.status(500).json({ message: "Failed to create payment intent.", error });
+  }
+});
+
+// Store booking data and update doctor availability after payment confirmation
+app.post("/confirm-payment", async (req, res) => {
+  const Stripe = require('stripe');
+  const stripe = Stripe('sk_test_51QOEgjH9ehGELQwr2jk71FWQ6IdRNH82iI9k3QmwSQCHgltrTy750Mc9C2UbHl9x5QGunaFOymS4biULT6F4zGRY00svp2VhYP');
+  const { paymentIntentId, bookingData } = req.body;
+
+  try {
+    // Confirm payment
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.status === "succeeded") {
+      // Store booking in patients table
+      const { patientId, doctorId, doctorName, specialty, date, time, consultationFees } = bookingData;
+      console.log("User ID", bookingData);
+
+      // Store in patients table
+      const patientBookingRef = db.ref(`users/patients/${patientId}/appointments`);
+      const newBookingRef = patientBookingRef.push();
+      await newBookingRef.set({
+        doctorId,
+        doctorName,
+        specialty,
+        date,
+        time,
+        consultationFees,
+        status: "Confirmed",
+      });
+
+      // Update availability in doctors table
+      const availabilityRef = db.ref(`users/doctors/${doctorId}/availability/${date}/${time}`);
+      await availabilityRef.set(false); // Mark slot as unavailable
+
+      res.status(200).json({ message: "Payment and booking successful." });
+    } else {
+      res.status(400).json({ message: "Payment not confirmed." });
+    }
+  } catch (error) {
+    console.error("Error confirming payment:", error);
+    res.status(500).json({ message: "Error processing payment confirmation.", error });
+  }
+});
+
+
+app.get("/current-patient", async (req, res) => {
+  try {
+    // Extract the patientId from the headers
+    const patientId = req.headers["patient-id"]; // Ensure the frontend sends this header
+    console.log("PatientID in current-patient", patientId);
+    if (!patientId) {
+      return res.status(400).json({ message: "Patient ID is missing." });
+    }
+
+    // Query the patients table using the patientId
+    const patientRef = db.ref(`users/patients/${patientId}`);
+    const snapshot = await patientRef.once("value");
+
+    if (!snapshot.exists()) {
+      return res.status(404).json({ message: "Patient not found." });
+    }
+
+    // Return the patient data
+    const patientData = snapshot.val();
+    res.status(200).json({ patientId, ...patientData });
+  } catch (error) {
+    console.error("Error fetching current patient:", error);
+    res.status(500).json({ message: "Failed to fetch current patient." });
+  }
+});
+
+
+// Test Endpoint to Fetch All Patients (Optional Debugging Tool)
+app.get("/all-patients", async (req, res) => {
+  try {
+    const snapshot = await db.ref("users/patients").once("value");
+    if (!snapshot.exists()) {
+      return res.status(404).json({ message: "No patients found." });
+    }
+    res.status(200).json(snapshot.val());
+  } catch (error) {
+    console.error("Error fetching all patients:", error.message);
+    res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+});
+
+
+const { v4: uuidv4 } = require('uuid');
+app.post('/create-appointment', async (req, res) => {
+  const { patientId, doctorId, date, time, status = 'confirmed' } = req.body;
+
+  if (!patientId || !doctorId || !date || !time) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
+
+  try {
+    const appointmentId = `appointment_${uuidv4()}`;
+    const appointmentRef = db.ref(`users/appointments/${appointmentId}`);
+
+    const appointmentData = {
+      appointmentId,
+      patientId,
+      doctorId,
+      date,
+      time,
+      status,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await appointmentRef.set(appointmentData);
+
+    // Update availability in the doctors table
+    const slotRef = db.ref(`users/doctors/${doctorId}/availability/${date}/${time}`);
+    await slotRef.set(false); // Mark the slot as unavailable
+
+    res.status(200).json({ message: 'Appointment created successfully.', appointmentId });
+  } catch (error) {
+    console.error('Error creating appointment:', error);
+    res.status(500).json({ error: 'Failed to create appointment.' });
+  }
+});
+
+// Fetch upcoming appointments for a specific patient
+app.get("/appointments/:patientId", async (req, res) => {
+  const { patientId } = req.params;
+
+  try {
+    // Reference to the patients table
+    const patientRef = db.ref(`users/patients/${patientId}`);
+
+    // Fetch the patient data
+    const patientSnapshot = await patientRef.once("value");
+
+    if (!patientSnapshot.exists()) {
+      return res.status(404).json({ message: "Patient not found." });
+    }
+
+    const patientData = patientSnapshot.val();
+
+    // Check if there are appointments
+    if (!patientData.appointments || Object.keys(patientData.appointments).length === 0) {
+      return res.status(404).json({ message: "No appointments found for this patient." });
+    }
+
+    const appointments = Object.values(patientData.appointments);
+    const doctorIds = new Set();
+
+    // Collect doctor IDs from appointments
+    appointments.forEach((appointment) => {
+      if (appointment.doctorId) {
+        doctorIds.add(appointment.doctorId);
+      }
+    });
+
+    // Fetch doctor details for all relevant doctor IDs
+    const doctorsRef = db.ref("users/doctors");
+    const doctorDetails = {};
+    for (const doctorId of doctorIds) {
+      const doctorSnapshot = await doctorsRef.child(doctorId).once("value");
+      if (doctorSnapshot.exists()) {
+        doctorDetails[doctorId] = doctorSnapshot.val();
+      }
+    }
+
+    // Enrich appointments with doctor details
+    const enrichedAppointments = appointments.map((appointment) => ({
+      ...appointment,
+      doctorName: doctorDetails[appointment.doctorId]?.firstName
+        ? `${doctorDetails[appointment.doctorId].firstName} ${doctorDetails[appointment.doctorId].lastName}`
+        : "Unknown Doctor",
+      specialty: doctorDetails[appointment.doctorId]?.specialty || "Unknown Specialty",
+    }));
+
+    // Return the enriched appointments
+    res.status(200).json({ appointments: enrichedAppointments });
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+    res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
+});
+
+
+app.get("/appointments/doctor/:doctorId/date/:date", async (req, res) => {
+  const { doctorId, date } = req.params;
+
+  try {
+    // Fetch appointments for the doctor
+    const appointmentsSnapshot = await db
+      .ref("users/appointments")
+      .orderByChild("doctorId")
+      .equalTo(doctorId)
+      .once("value");
+
+    if (!appointmentsSnapshot.exists()) {
+      return res.status(404).json({ appointments: [] });
+    }
+
+    const appointments = Object.values(appointmentsSnapshot.val()).filter(
+      (appointment) => appointment.date === date
+    );
+
+    // Fetch patient details for each appointment
+    const enhancedAppointments = await Promise.all(
+      appointments.map(async (appointment) => {
+        try {
+          const patientSnapshot = await db
+            .ref(`users/patients/${appointment.patientId}`)
+            .once("value");
+
+          if (patientSnapshot.exists()) {
+            const patientData = patientSnapshot.val();
+            return {
+              ...appointment,
+              patientName: `${patientData.firstName} ${patientData.lastName}`, // Add patient's name
+            };
+          }
+
+          return { ...appointment, patientName: "Unknown Patient" }; // Fallback if patient data is missing
+        } catch (err) {
+          console.error("Error fetching patient data:", err);
+          return { ...appointment, patientName: "Unknown Patient" }; // Fallback if an error occurs
+        }
+      })
+    );
+
+    res.status(200).json({ appointments: enhancedAppointments });
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+    res.status(500).json({ error: "Failed to fetch appointments" });
+  }
+});
+
+
+
 
 
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
