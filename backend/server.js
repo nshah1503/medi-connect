@@ -407,31 +407,11 @@ app.post('/hume-ai', async (req, res) => {
     // const apiKey = process.env.HUME_API_KEY; // Use backend environment variables
     // const endpoint = process.env.HUME_API_ENDPOINT;
 
-    console.log("Request Body:", req.body);
     const response = await axios.post(humeAPIEndpoint, req.body, {
       headers: { Authorization: `Bearer ${humeapiKey}`, 'Content-Type': 'application/json' },
     });
 
-    console.log("Response data", response.data);
     res.json(response.data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-app.post('/create-payment-intent', async (req, res) => {
-  const Stripe = require('stripe');
-const stripe = Stripe('sk_test_51QOEgjH9ehGELQwr2jk71FWQ6IdRNH82iI9k3QmwSQCHgltrTy750Mc9C2UbHl9x5QGunaFOymS4biULT6F4zGRY00svp2VhYP');
-  const { amount } = req.body;
-
-  try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100, // Convert to cents
-      currency: 'usd',
-    });
-
-    res.status(200).json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -486,16 +466,13 @@ app.post('/empanelhospital', async (req, res) => {
 // GET Route: Fetch Patient Data
 app.get('/patients/:id', async (req, res) => {
   const patientId = req.params.id;
-  console.log("Patient ID:", patientId); // Log patient ID for debugging
 
   try {
     // Correct path reference
     const patientRef = db.ref(`users/patients/${patientId}`);
-    console.log("Firebase reference path:", patientRef.toString()); // Debug path
 
     // Fetch data
     const snapshot = await patientRef.once('value');
-    console.log("Snapshot:", snapshot.val()); // Log the fetched data
 
     const data = snapshot.val();
     if (!data) {
@@ -516,44 +493,6 @@ app.get('/patients/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching patient data:', error);
     res.status(500).json({ message: 'Failed to fetch patient data.' });
-  }
-});
-
-app.post("/store-booking", async (req, res) => {
-  const { userId, doctorName, speciality, date, time, paymentDetails } = req.body;
-  console.log("Bodyyyyyy", req.body);
-  //let userId = "12345";
-
-  // if (!userId || !doctorName || !speciality || !date || !time || !paymentDetails) {
-  //   return res.status(400).json({ message: "Missing required fields." });
-  // }
-
-  try {
-    const appointmentId = `appointment_${Date.now()}`;
-    console.log("Appointment ID ", appointmentId);
-    const bookingData = {
-      userId: 12345,
-      doctorName,
-      speciality,
-      date,
-      time,
-      payment: paymentDetails,
-    };
-
-    console.log("Booking data", bookingData);
-
-    // const appointmentRef = db.ref(`${userId}/${appointmentId}`);
-    const appointmentRef = db.ref(`12345/${appointmentId}`);
-    console.log("Appointment ref", appointmentRef);
-    await appointmentRef.set(bookingData);
-
-    res.status(200).json({
-      message: "Booking data stored successfully.",
-      appointmentId,
-    });
-  } catch (error) {
-    console.error("Error storing booking data:", error);
-    res.status(500).json({ message: "Failed to store booking data.", error });
   }
 });
 
@@ -581,7 +520,6 @@ async function sendFileToFlaskServer(filePath) {
 
 
 app.get("/fetch-bookings/:userId", async (req, res) => {
-  console.log(`Fetching bookings for userId: ${req.params.userId}`); // Debug log
   const { userId } = req.params;
 
   if (!userId) {
@@ -609,28 +547,21 @@ app.get("/fetch-bookings/:userId", async (req, res) => {
 });
 
 app.get("/specialties", async (req, res) => {
-  console.log("Inside specialties API");
   try {
     const doctorsRef = db.ref("users/doctors");
-    console.log("DoctorsRef Path:", doctorsRef.toString());
 
     const snapshot = await doctorsRef.once("value");
-    console.log("Snapshot Exists:", snapshot.exists());
 
     if (!snapshot.exists()) {
-      console.log("No data found at the specified path.");
       return res.status(404).json({ message: "No doctors found." });
     }
 
     const doctors = snapshot.val();
-    console.log("Doctors Data Retrieved:", doctors);
 
     const specialties = new Set(Object.values(doctors).map((doctor) => doctor.specialty));
-    console.log("Specialties:", specialties);
 
     res.status(200).json([...specialties]); // Convert Set to Array
   } catch (error) {
-    console.error("Error fetching specialties:", error);
     res.status(500).json({ message: "Error fetching specialties." });
   }
 });
@@ -662,8 +593,6 @@ app.get("/doctors", async (req, res) => {
 app.get("/availability/:doctorId", async (req, res) => {
   const { doctorId } = req.params;
 
-  console.log("Doctorid", doctorId);
-
   try {
     const availabilityRef = db.ref(`users/doctors/${doctorId}/availability`);
     const snapshot = await availabilityRef.once("value");
@@ -683,9 +612,6 @@ app.get("/availability/:doctorId", async (req, res) => {
 app.get("/doctors-by-specialty", async (req, res) => {
   try {
     const { specialty } = req.query;
-    console.log("specialty", specialty);
-
-    console.log("Specialty requested:", specialty);
 
     // Validate the specialty query parameter
     if (!specialty) {
@@ -694,10 +620,7 @@ app.get("/doctors-by-specialty", async (req, res) => {
 
     // Reference the doctors node in Firebase
     const doctorsRef = db.ref("users/doctors");
-    console.log("Doctorsref", doctorsRef.toString);
     const snapshot = await doctorsRef.once("value");
-
-    console.log("Snapshot exists:", snapshot.exists());
 
     // If no data is found, return a 404
     if (!snapshot.exists()) {
@@ -706,8 +629,6 @@ app.get("/doctors-by-specialty", async (req, res) => {
 
     const doctors = snapshot.val();
 
-    console.log("All doctors:", doctors);
-
     // Filter doctors by the specialty field
     const filteredDoctors = Object.keys(doctors)
       .map((key) => ({
@@ -715,11 +636,8 @@ app.get("/doctors-by-specialty", async (req, res) => {
         ...doctors[key],
       }))
       .filter((doctor) => {
-        console.log(`Checking doctor ${doctor.firstName} ${doctor.lastName} with specialty ${doctor.specialty}`);
         return doctor.specialty === specialty;
       });
-
-    console.log("Filtered doctors:", filteredDoctors);
 
     // If no doctors match the specialty, return a 404
     if (filteredDoctors.length === 0) {
@@ -839,7 +757,6 @@ app.post("/confirm-payment", async (req, res) => {
     if (paymentIntent.status === "succeeded") {
       // Store booking in patients table
       const { patientId, doctorId, doctorName, specialty, date, time, consultationFees } = bookingData;
-      console.log("User ID", bookingData);
 
       // Store in patients table
       const patientBookingRef = db.ref(`users/patients/${patientId}/appointments`);
@@ -873,7 +790,6 @@ app.get("/current-patient", async (req, res) => {
   try {
     // Extract the patientId from the headers
     const patientId = req.headers["patient-id"]; // Ensure the frontend sends this header
-    console.log("PatientID in current-patient", patientId);
     if (!patientId) {
       return res.status(400).json({ message: "Patient ID is missing." });
     }
@@ -947,65 +863,6 @@ app.post('/create-appointment', async (req, res) => {
   }
 });
 
-// Fetch upcoming appointments for a specific patient
-app.get("/appointments/:patientId", async (req, res) => {
-  const { patientId } = req.params;
-
-  try {
-    // Reference to the patients table
-    const patientRef = db.ref(`users/patients/${patientId}`);
-
-    // Fetch the patient data
-    const patientSnapshot = await patientRef.once("value");
-
-    if (!patientSnapshot.exists()) {
-      return res.status(404).json({ message: "Patient not found." });
-    }
-
-    const patientData = patientSnapshot.val();
-
-    // Check if there are appointments
-    if (!patientData.appointments || Object.keys(patientData.appointments).length === 0) {
-      return res.status(404).json({ message: "No appointments found for this patient." });
-    }
-
-    const appointments = Object.values(patientData.appointments);
-    const doctorIds = new Set();
-
-    // Collect doctor IDs from appointments
-    appointments.forEach((appointment) => {
-      if (appointment.doctorId) {
-        doctorIds.add(appointment.doctorId);
-      }
-    });
-
-    // Fetch doctor details for all relevant doctor IDs
-    const doctorsRef = db.ref("users/doctors");
-    const doctorDetails = {};
-    for (const doctorId of doctorIds) {
-      const doctorSnapshot = await doctorsRef.child(doctorId).once("value");
-      if (doctorSnapshot.exists()) {
-        doctorDetails[doctorId] = doctorSnapshot.val();
-      }
-    }
-
-    // Enrich appointments with doctor details
-    const enrichedAppointments = appointments.map((appointment) => ({
-      ...appointment,
-      doctorName: doctorDetails[appointment.doctorId]?.firstName
-        ? `${doctorDetails[appointment.doctorId].firstName} ${doctorDetails[appointment.doctorId].lastName}`
-        : "Unknown Doctor",
-      specialty: doctorDetails[appointment.doctorId]?.specialty || "Unknown Specialty",
-    }));
-
-    // Return the enriched appointments
-    res.status(200).json({ appointments: enrichedAppointments });
-  } catch (error) {
-    console.error("Error fetching appointments:", error);
-    res.status(500).json({ message: "Internal Server Error", error: error.message });
-  }
-});
-
 
 app.get("/appointments/doctor/:doctorId/date/:date", async (req, res) => {
   const { doctorId, date } = req.params;
@@ -1054,6 +911,62 @@ app.get("/appointments/doctor/:doctorId/date/:date", async (req, res) => {
   } catch (error) {
     console.error("Error fetching appointments:", error);
     res.status(500).json({ error: "Failed to fetch appointments" });
+  }
+});
+
+app.post("/doctor/setup", async (req, res) => {
+  const { doctorId, consultationFee, availability } = req.body;
+
+  if (!doctorId || !consultationFee || !availability) {
+    return res.status(400).json({ error: "Missing required fields." });
+  }
+
+  try {
+    // Reference to the doctor's setup in the database
+    const doctorSetupRef = db.ref(`users/doctors/${doctorId}`);
+
+    // Data to be saved
+    const setupData = {
+      consultationFee: parseFloat(consultationFee),
+      availability,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Save setup details
+    await doctorSetupRef.set(setupData); // Overwrites the `setup` field with new data
+
+    res.status(200).json({
+      message: "Doctor setup saved successfully.",
+    });
+  } catch (error) {
+    console.error("Error saving doctor setup:", error);
+    res.status(500).json({
+      error: "Failed to save doctor setup.",
+    });
+  }
+});
+
+
+app.get('/appointments/patient/:patientId', async (req, res) => {
+  const { patientId } = req.params;
+
+  try {
+    const appointmentsSnapshot = await db
+      .ref('users/appointments')
+      .orderByChild('patientId')
+      .equalTo(patientId)
+      .once('value');
+
+    if (!appointmentsSnapshot.exists()) {
+      return res.status(200).json({ message: 'No appointments found.', appointments: [] });
+    }
+
+    const appointments = Object.values(appointmentsSnapshot.val());
+    res.status(200).json({ appointments });
+  } catch (error) {
+    console.error('Error fetching appointments:', error);
+    res.status(500).json({ error: 'Failed to fetch appointments.' });
   }
 });
 
