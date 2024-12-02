@@ -1,5 +1,3 @@
-// src/components/PatientCalendarPage/PatientCalendarPage.js
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../Layout/Layout";
@@ -9,7 +7,7 @@ import InsuranceFeatures from "../Insurance/InsuranceFeatures.js";
 import axios from "axios";
 import { storage } from "../../firebase";
 import { ref, listAll, getMetadata } from "firebase/storage";
-import { motion, AnimatePresence } from "framer-motion"; // Import Framer Motion components
+import { motion, AnimatePresence } from "framer-motion";
 
 const PatientCalendarPage = () => {
   const navigate = useNavigate();
@@ -19,7 +17,11 @@ const PatientCalendarPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const patientId = localStorage.getItem("patientId"); // Retrieve patient ID from localStorage
+  const [callStatus, setCallStatus] = useState("not_started");
+  const [recordingStatus, setRecordingStatus] = useState("");
+  const [downloadProgress, setDownloadProgress] = useState(null);
+
+  const patientId = localStorage.getItem("patientId");
 
   useEffect(() => {
     if (!patientId) {
@@ -30,14 +32,11 @@ const PatientCalendarPage = () => {
 
     const fetchPatientData = async () => {
       try {
-        // Fetch upcoming appointments with doctor details
         const appointmentsResponse = await axios.get(
           `http://localhost:4000/appointments/patient/${patientId}`
         );
         setUpcomingAppointments(appointmentsResponse.data.appointments);
-        console.log("Appointment data in patient dashboard", appointmentsResponse.data.appointments);
 
-        // Fetch additional patient information
         const patientResponse = await axios.get(
           `http://localhost:4000/patients/${patientId}`
         );
@@ -67,7 +66,6 @@ const PatientCalendarPage = () => {
           })
         );
 
-        // Filter out non-PDF files and placeholders
         const pdfFiles = filesWithMetadata.filter(
           (file) => file.type === "application/pdf" && file.name !== ".placeholder"
         );
@@ -83,11 +81,59 @@ const PatientCalendarPage = () => {
     fetchFiles();
   }, [patientId, navigate]);
 
+  const checkCallAndRecordingStatus = async () => {
+    try {
+      const response = await fetch("/api/check-call-and-recording");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+
+      if (data.callEnded) {
+        setCallStatus("ended");
+        if (data.recordingReady && data.downloadedFilePath) {
+          setRecordingStatus(
+            `Recording downloaded: ${data.downloadedFilePath}`
+          );
+          setDownloadProgress(100);
+        } else if (data.recordingReady) {
+          setRecordingStatus("Recording ready. Initiating download...");
+          setDownloadProgress(0);
+        } else {
+          setRecordingStatus(
+            "Call ended. Waiting for recording to be ready..."
+          );
+        }
+      } else {
+        setCallStatus("in_progress");
+        setRecordingStatus("Call in progress...");
+      }
+    } catch (error) {
+      console.error(`Error checking status: ${error.message}`);
+    }
+  };
+
+  useEffect(() => {
+    const checkStatus = () => {
+      checkCallAndRecordingStatus();
+      if (callStatus === "ended" && !recordingStatus.includes("downloaded")) {
+        setTimeout(checkStatus, 2500); // Check every 500ms
+      }
+    };
+
+    const intervalId = setInterval(checkStatus, 2500); // Regular check every 500ms
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [callStatus, recordingStatus]);
+
   const launchVideoCall = () => {
     try {
       window.open("https://doc-talk.daily.co/doc-talk", "_blank");
+      setCallStatus("in_progress");
     } catch (error) {
-      console.error("Error launching video call:", error);
+      setError("Failed to launch video call. Please try again.");
     }
   };
 

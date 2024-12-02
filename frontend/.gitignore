@@ -14,7 +14,7 @@
 # package
 /frontend/package-lock.json
 /frontend/package.json
-
+/frontend/.env
 # misc
 .DS_Store
 .env.local

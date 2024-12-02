@@ -6,6 +6,7 @@ from groq import Groq
 from audio_to_text import main as get_transcription
 from pdf import generate_pdf
 from flask_cors import CORS
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -15,13 +16,33 @@ client = Groq(
     api_key=os.environ.get("GROQ_API_KEY"),
 )
 
+
+# Helper function: Retry logic with exponential backoff
+def call_groq_with_retry(prompt, max_retries=5):
+    for retry in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="mixtral-8x7b-32768",
+            )
+            return response
+        except Exception as e:
+            if "rate limit" in str(e).lower() and retry < max_retries - 1:
+                wait_time = 2 ** retry  # Exponential backoff
+                print(f"Rate limit hit. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                print(f"Error calling Groq API: {e}")
+                raise
+
+
 @app.route('/process_transcription', methods=['POST'])
 def process_transcription():
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files['audio']
-    
+    print(audio_file)
     # Save the file temporarily
     temp_path = 'temp_audio.wav'
     audio_file.save(temp_path)
@@ -55,18 +76,21 @@ def process_transcription():
     """
 
     # Send the transcription to Groq
-    chat_completion = client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-        model="mixtral-8x7b-32768",
-    )
+    # chat_completion = client.chat.completions.create(
+    #     messages=[
+    #         {
+    #             "role": "user",
+    #             "content": prompt,
+    #         }
+    #     ],
+    #     model="mixtral-8x7b-32768",
+    # )
+
+    chat_completion = call_groq_with_retry(prompt)
 
     # Get the response from Groq API
     response = chat_completion.choices[0].message.content
+    print("Groq API Response:", response)
 
     # Extract the JSON part from the response
     json_match = re.search(r"\{.*\}", response, re.DOTALL)
@@ -90,9 +114,8 @@ def process_transcription():
         except Exception as e:
           return jsonify({"error": f"Error occurred: {e}"}), 500
     else:
-        print("outoutoutout")
         return "No valid JSON found in the response.", 500
-  
+
     return jsonify({"status": "PDF generated successfully"}), 200
 
 if __name__ == '__main__':

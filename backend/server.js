@@ -141,6 +141,76 @@ app.post("/save-audio", upload.single("audio"), async (req, res) => {
   blobStream.end(file.buffer);
 });
 
+// app.post("/save-audio", upload.single("audio"), async (req, res) => {
+//   const { appointmentId } = req.body; // Extract appointmentId from the request body
+
+//   if (!appointmentId) {
+//     return res.status(400).json({ message: "Missing appointmentId." });
+//   }
+
+//   if (!req.file) {
+//     console.log("No file received in the request");
+//     return res.status(400).send("No file uploaded.");
+//   }
+
+//   try {
+//     // Retrieve appointment details
+//     const appointmentSnapshot = await db.ref(`users/appointments/${appointmentId}`).once('value');
+
+//     if (!appointmentSnapshot.exists()) {
+//       return res.status(404).json({ message: "Appointment not found." });
+//     }
+
+//     const appointmentData = appointmentSnapshot.val();
+//     const { doctorId, patientId } = appointmentData;
+
+//     // Generate unique filenames
+//     const fileName = generateUniqueFilename(req.file.originalname, "recording");
+//     const filePath = `audio_recordings/${fileName}`;
+
+//     console.log(`Attempting to upload file: ${filePath}`);
+
+//     const fileUpload = bucket.file(filePath);
+
+//     const blobStream = fileUpload.createWriteStream({
+//       metadata: {
+//         contentType: req.file.mimetype,
+//       },
+//     });
+
+//     blobStream.on("error", (error) => {
+//       console.error("Error uploading to Firebase:", error);
+//       res.status(500).send("An error occurred during file upload.");
+//     });
+
+//     blobStream.on("finish", async () => {
+//       console.log(`File uploaded successfully: ${filePath}`);
+//       // Save metadata to Firebase Realtime Database
+//       const recordingId = `recording_${uuidv4()}`;
+//       const audioMetadata = {
+//         recordingId,
+//         appointmentId,
+//         doctorId,
+//         patientId,
+//         filePath,
+//         uploadedAt: admin.database.ServerValue.TIMESTAMP,
+//       };
+//       await db.ref(`users/audio_recordings/${recordingId}`).set(audioMetadata);
+
+//       res.status(200).json({
+//         message: "File uploaded successfully to Firebase",
+//         recordingId,
+//         filePath,
+//       });
+//     });
+
+//     blobStream.end(req.file.buffer);
+//   } catch (error) {
+//     console.error("Error in /save-audio endpoint:", error);
+//     res.status(500).json({ message: "Server error during audio upload." });
+//   }
+// });
+
 // Add a new route to handle other file uploads
 app.post("/save-file", upload.single("file"), async (req, res) => {
   if (!req.file) {
@@ -261,9 +331,10 @@ const checkRecordingStatus = async (recordingId) => {
 };
 
 const getDownloadLink = async (recordingId) => {
+  let delay = 500; // Initial delay for retries
   for (let i = 0; i < 5; i++) {
     try {
-      const downloadLinkResponse = await axios.get(
+      const response = await axios.get(
         `https://api.daily.co/v1/recordings/${recordingId}/access-link`,
         {
           headers: {
@@ -272,17 +343,30 @@ const getDownloadLink = async (recordingId) => {
           },
         }
       );
-      return downloadLinkResponse.data.download_link;
+      return response.data.download_link;
     } catch (error) {
-      if (i < 4) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+      if (error.response?.status === 429 && i < 4) {
+        // Handle rate limit: Retry after exponential backoff
+        console.warn(
+          `Rate limit hit when fetching download link. Retrying in ${delay}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        console.error(
+          `Error fetching download link for recording ${recordingId}:`,
+          error.message
+        );
+        if (i === 4) {
+          throw new Error(
+            `Failed to get download link for recording ${recordingId} after 5 attempts: ${error.message}`
+          );
+        }
       }
     }
   }
-  throw new Error(
-    `Failed to get download link for recording ${recordingId} after 5 attempts`
-  );
 };
+
 
 const downloadFile = (url, filePath) => {
   return new Promise((resolve, reject) => {
@@ -318,7 +402,7 @@ app.get("/api/check-call-and-recording", async (req, res) => {
   if (!apiKey) {
     return res.status(500).json({ error: "API key is not configured" });
   }
-
+  
   try {
     const sessionsResponse = await axios.get(
       "https://api.daily.co/v1/meetings",
@@ -332,7 +416,6 @@ app.get("/api/check-call-and-recording", async (req, res) => {
         },
       }
     );
-
     const activeSessions = sessionsResponse.data.data.filter(
       (session) => session.ongoing
     );
@@ -374,6 +457,8 @@ app.get("/api/check-call-and-recording", async (req, res) => {
 
             // Send the file to the Flask server
             console.log("Sending file to Flask server");
+            console.log("File path:", filePath);
+            console.log("File exists:", fs.existsSync(filePath));
             processingResult = await sendFileToFlaskServer(filePath);
           } catch (error) {
             console.error("Error processing audio:", error);
@@ -496,7 +581,33 @@ app.get('/patients/:id', async (req, res) => {
   }
 });
 
+const PROCESSED_RECORDINGS_FILE = path.join(__dirname, 'processed_recordings.json');
+
+function loadProcessedRecordings() {
+  try {
+    const data = fs.readFileSync(PROCESSED_RECORDINGS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If the file doesn't exist, return an empty array
+    return [];
+  }
+}
+
+function saveProcessedRecording(filePath) {
+  const processedRecordings = loadProcessedRecordings();
+  processedRecordings.push(filePath);
+  
+  fs.writeFileSync(PROCESSED_RECORDINGS_FILE, JSON.stringify(processedRecordings, null, 2), 'utf8');
+}
+
 async function sendFileToFlaskServer(filePath) {
+  // Check if the recording has already been processed
+  const processedRecordings = loadProcessedRecordings();
+  if (processedRecordings.includes(filePath)) {
+    console.log(`Recording ${filePath} has already been processed.`);
+    return null;
+  }
+
   const form = new FormData();
   form.append("audio", fs.createReadStream(filePath));
 
@@ -510,14 +621,19 @@ async function sendFileToFlaskServer(filePath) {
         },
       }
     );
-    return response.data;
+    
+    if (response.status === 200) {
+      // Mark the recording as processed
+      saveProcessedRecording(filePath);
+      return response.data;
+    } else {
+      throw new Error("Flask server returned non-200 status.");
+    }
   } catch (error) {
     console.error("Error sending file to Flask server:", error);
     throw error;
   }
 }
-
-
 
 app.get("/fetch-bookings/:userId", async (req, res) => {
   const { userId } = req.params;
