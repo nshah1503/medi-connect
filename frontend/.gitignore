@@ -15,6 +15,22 @@
 /frontend/package-lock.json
 /frontend/package.json
 /frontend/.env
+
+#backend
+/backend/.env
+/backend/package-lock.json
+/backend/package.json
+/backend/processed_recordings.json
+/backend/recordings/.DS_Store
+
+#ml
+/ml/.DS_Store
+/ml/.env
+/ml/output_data.json
+/ml/doctalk-9e28b-firebase-adminsdk-dxyqw-91d21a3d0f.json
+/ml/__pycache__/audio_to_text.cpython-313.pyc
+/ml/__pycache__/pdf.cpython-313.pyc
+
 # misc
 .DS_Store
 .env.local
