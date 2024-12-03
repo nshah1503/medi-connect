@@ -50,7 +50,7 @@ const HumeAISection = () => {
       </p>
       <div className="flex items-center space-x-4">
         <img
-          src="/api/placeholder/80/80"
+          src="/resources/hume.png"
           alt="Hume AI Avatar"
           className="w-20 h-20 rounded-full"
         />

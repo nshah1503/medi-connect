@@ -24,6 +24,10 @@ import RedirectIfAuth from "./components/Auth/redirectIfAuth"; // Import the Red
 import "./index.css";
 import DoctorProfile from "./components/Layout/DoctorProfile";
 import DoctorSetup from "./components/Auth/docSetup";
+import NetworkHospitals from "./components/Insurance/NetworkHospitals";
+import PremiumCalculator from "./components/Insurance/PremiumCalculator";
+import InsuranceInformation from "./components/Insurance/InsuranceInformation";
+import PatientSetup from "./components/Auth/patientSetup";
 
 const App = () => {
   return (
@@ -181,11 +185,43 @@ const App = () => {
             </RequireAuth>
           }
         />
-                <Route
+        <Route
           path="doctor/setup-availability"
           element={
             <RequireAuth>
               <DoctorSetup />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/network-hospitals"
+          element={
+            <RequireAuth>
+              <NetworkHospitals />
+            </RequireAuth>
+          }
+        />
+         <Route
+          path="/premium-calculator"
+          element={
+            <RequireAuth>
+              <PremiumCalculator />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/insurance-info"
+          element={
+            <RequireAuth>
+              <InsuranceInformation />
+            </RequireAuth>
+          }
+        />
+                <Route
+          path="/patient/setup"
+          element={
+            <RequireAuth>
+              <PatientSetup />
             </RequireAuth>
           }
         />
