@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../Card/Card";
 import { Button } from "../Button/Button";
 import { useNavigate } from "react-router-dom";
 
+
 const DoctorAuth = () => {
   const [isSignup, setIsSignup] = useState(true); // Toggle between Login and Signup
   const [formData, setFormData] = useState({
@@ -229,6 +230,7 @@ const DoctorAuth = () => {
                         value={formData.address.state}
                         required
                       >
+                        <option value="">Select State</option>
                         <option value="">Select State</option>
                         <option value="AL">Alabama</option>
                         <option value="AK">Alaska</option>

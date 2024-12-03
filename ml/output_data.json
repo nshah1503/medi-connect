@@ -1,0 +1,28 @@
+{
+  "medicines": [
+    {
+      "name": "not_specified",
+      "timings": [
+        "as_soon_as_you_reach_home",
+        "6_PM",
+        "before_sleeping"
+      ]
+    }
+  ],
+  "exercises": {
+    "recommendations": "not_specified"
+  },
+  "diagnosis": {
+    "description": "fever_possibly_caused_by_malaria"
+  },
+  "next_appointment": {
+    "details": "not_specified"
+  },
+  "tests": [
+    {
+      "name": "blood_test",
+      "for": "malaria"
+    }
+  ],
+  "summary": "The patient has a fever and possibly malaria. The doctor prescribed a medicine to be taken three times, with specific timing for each dose. The patient should eat light food. Payment will be done at the reception desk. The patient needs to get a blood test for malaria."
+}

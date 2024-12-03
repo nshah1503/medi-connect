@@ -10,9 +10,14 @@ import os
 # with open('output.json') as f:
 #     data = json.load(f)
 
-cred = credentials.Certificate(os.getenv('FIREBASE_ADMIN_SDK'))
+# cred = credentials.Certificate(os.getenv('FIREBASE_ADMIN_SDK'))
+# firebase_admin.initialize_app(cred, {
+#     'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET')  # Your Firebase Storage bucket name
+# })
+
+cred = credentials.Certificate('doctalk-9e28b-firebase-adminsdk-dxyqw-91d21a3d0f.json')
 firebase_admin.initialize_app(cred, {
-    'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET')  # Your Firebase Storage bucket name
+    'storageBucket': 'doctalk-9e28b.appspot.com'  # Your Firebase Storage bucket name
 })
 
 # Function to generate random appointment time within the next week
@@ -121,11 +126,11 @@ def generate_pdf(audio_file_path):
 </head>
 <body>
     <div class="header">
-        Your Conslt Prescription
+        Your Mediconnect Prescription
     </div>
 
     <div class="sub-header">
-        <div>CONSLT.AI</div>
+        <div>Mediconnect</div>
         <div>DATE: {date}</div>
     </div>
 

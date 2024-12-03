@@ -20,6 +20,8 @@ const PaymentForm = ({ bookingData }) => {
   // Ensure consultationFees is a number and handle undefined gracefully
   const consultationFee = typeof bookingData.consultationFee === "number" ? bookingData.consultationFee : parseFloat(bookingData.consultationFee) || 0;
   console.log("ConsultationFee", bookingData);
+  //parseFloat(bookingData?.consultationFees || 0);
+  //const numericAmount = typeof bookingData.consultationFees === "number" ? bookingData.consultationFees : parseFloat(bookingData.consultationFees) || 0;
 
   const fetchPaymentIntent = async (amount) => {
     try {

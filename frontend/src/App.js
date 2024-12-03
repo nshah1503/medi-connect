@@ -59,6 +59,16 @@ const App = () => {
             </RequireAuth>
           }
         />
+        
+        <Route
+          path="doctor/setup-availability"
+          element={
+            <RequireAuth>
+              <DoctorSetup />
+            </RequireAuth>
+          }
+        />
+
         <Route
           path="/patient/booking"
           element={

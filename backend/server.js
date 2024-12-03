@@ -141,6 +141,76 @@ app.post("/save-audio", upload.single("audio"), async (req, res) => {
   blobStream.end(file.buffer);
 });
 
+// app.post("/save-audio", upload.single("audio"), async (req, res) => {
+//   const { appointmentId } = req.body; // Extract appointmentId from the request body
+
+//   if (!appointmentId) {
+//     return res.status(400).json({ message: "Missing appointmentId." });
+//   }
+
+//   if (!req.file) {
+//     console.log("No file received in the request");
+//     return res.status(400).send("No file uploaded.");
+//   }
+
+//   try {
+//     // Retrieve appointment details
+//     const appointmentSnapshot = await db.ref(`users/appointments/${appointmentId}`).once('value');
+
+//     if (!appointmentSnapshot.exists()) {
+//       return res.status(404).json({ message: "Appointment not found." });
+//     }
+
+//     const appointmentData = appointmentSnapshot.val();
+//     const { doctorId, patientId } = appointmentData;
+
+//     // Generate unique filenames
+//     const fileName = generateUniqueFilename(req.file.originalname, "recording");
+//     const filePath = `audio_recordings/${fileName}`;
+
+//     console.log(`Attempting to upload file: ${filePath}`);
+
+//     const fileUpload = bucket.file(filePath);
+
+//     const blobStream = fileUpload.createWriteStream({
+//       metadata: {
+//         contentType: req.file.mimetype,
+//       },
+//     });
+
+//     blobStream.on("error", (error) => {
+//       console.error("Error uploading to Firebase:", error);
+//       res.status(500).send("An error occurred during file upload.");
+//     });
+
+//     blobStream.on("finish", async () => {
+//       console.log(`File uploaded successfully: ${filePath}`);
+//       // Save metadata to Firebase Realtime Database
+//       const recordingId = `recording_${uuidv4()}`;
+//       const audioMetadata = {
+//         recordingId,
+//         appointmentId,
+//         doctorId,
+//         patientId,
+//         filePath,
+//         uploadedAt: admin.database.ServerValue.TIMESTAMP,
+//       };
+//       await db.ref(`users/audio_recordings/${recordingId}`).set(audioMetadata);
+
+//       res.status(200).json({
+//         message: "File uploaded successfully to Firebase",
+//         recordingId,
+//         filePath,
+//       });
+//     });
+
+//     blobStream.end(req.file.buffer);
+//   } catch (error) {
+//     console.error("Error in /save-audio endpoint:", error);
+//     res.status(500).json({ message: "Server error during audio upload." });
+//   }
+// });
+
 // Add a new route to handle other file uploads
 app.post("/save-file", upload.single("file"), async (req, res) => {
   if (!req.file) {
@@ -261,9 +331,10 @@ const checkRecordingStatus = async (recordingId) => {
 };
 
 const getDownloadLink = async (recordingId) => {
+  let delay = 500; // Initial delay for retries
   for (let i = 0; i < 5; i++) {
     try {
-      const downloadLinkResponse = await axios.get(
+      const response = await axios.get(
         `https://api.daily.co/v1/recordings/${recordingId}/access-link`,
         {
           headers: {
@@ -272,17 +343,30 @@ const getDownloadLink = async (recordingId) => {
           },
         }
       );
-      return downloadLinkResponse.data.download_link;
+      return response.data.download_link;
     } catch (error) {
-      if (i < 4) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+      if (error.response?.status === 429 && i < 4) {
+        // Handle rate limit: Retry after exponential backoff
+        console.warn(
+          `Rate limit hit when fetching download link. Retrying in ${delay}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        console.error(
+          `Error fetching download link for recording ${recordingId}:`,
+          error.message
+        );
+        if (i === 4) {
+          throw new Error(
+            `Failed to get download link for recording ${recordingId} after 5 attempts: ${error.message}`
+          );
+        }
       }
     }
   }
-  throw new Error(
-    `Failed to get download link for recording ${recordingId} after 5 attempts`
-  );
 };
+
 
 const downloadFile = (url, filePath) => {
   return new Promise((resolve, reject) => {
@@ -318,7 +402,7 @@ app.get("/api/check-call-and-recording", async (req, res) => {
   if (!apiKey) {
     return res.status(500).json({ error: "API key is not configured" });
   }
-
+  
   try {
     const sessionsResponse = await axios.get(
       "https://api.daily.co/v1/meetings",
@@ -332,7 +416,6 @@ app.get("/api/check-call-and-recording", async (req, res) => {
         },
       }
     );
-
     const activeSessions = sessionsResponse.data.data.filter(
       (session) => session.ongoing
     );
@@ -374,6 +457,8 @@ app.get("/api/check-call-and-recording", async (req, res) => {
 
             // Send the file to the Flask server
             console.log("Sending file to Flask server");
+            console.log("File path:", filePath);
+            console.log("File exists:", fs.existsSync(filePath));
             processingResult = await sendFileToFlaskServer(filePath);
           } catch (error) {
             console.error("Error processing audio:", error);
@@ -496,7 +581,33 @@ app.get('/patients/:id', async (req, res) => {
   }
 });
 
+const PROCESSED_RECORDINGS_FILE = path.join(__dirname, 'processed_recordings.json');
+
+function loadProcessedRecordings() {
+  try {
+    const data = fs.readFileSync(PROCESSED_RECORDINGS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If the file doesn't exist, return an empty array
+    return [];
+  }
+}
+
+function saveProcessedRecording(filePath) {
+  const processedRecordings = loadProcessedRecordings();
+  processedRecordings.push(filePath);
+  
+  fs.writeFileSync(PROCESSED_RECORDINGS_FILE, JSON.stringify(processedRecordings, null, 2), 'utf8');
+}
+
 async function sendFileToFlaskServer(filePath) {
+  // Check if the recording has already been processed
+  const processedRecordings = loadProcessedRecordings();
+  if (processedRecordings.includes(filePath)) {
+    console.log(`Recording ${filePath} has already been processed.`);
+    return null;
+  }
+
   const form = new FormData();
   form.append("audio", fs.createReadStream(filePath));
 
@@ -510,14 +621,19 @@ async function sendFileToFlaskServer(filePath) {
         },
       }
     );
-    return response.data;
+    
+    if (response.status === 200) {
+      // Mark the recording as processed
+      saveProcessedRecording(filePath);
+      return response.data;
+    } else {
+      throw new Error("Flask server returned non-200 status.");
+    }
   } catch (error) {
     console.error("Error sending file to Flask server:", error);
     throw error;
   }
 }
-
-
 
 app.get("/fetch-bookings/:userId", async (req, res) => {
   const { userId } = req.params;
@@ -720,6 +836,7 @@ app.post("/book-and-store", async (req, res) => {
 app.post("/create-payment-intent", async (req, res) => {
   const Stripe = require('stripe');
   const stripe = Stripe('sk_test_51QOEgjH9ehGELQwr2jk71FWQ6IdRNH82iI9k3QmwSQCHgltrTy750Mc9C2UbHl9x5QGunaFOymS4biULT6F4zGRY00svp2VhYP');
+
   const { amount, bookingData } = req.body;
 
   try {
@@ -758,7 +875,7 @@ app.post("/confirm-payment", async (req, res) => {
 
     if (paymentIntent.status === "succeeded") {
       // Store booking in patients table
-      const { patientId, doctorId, doctorName, specialty, date, time, consultationFees } = bookingData;
+      const { patientId, doctorId, doctorName, specialty, date, time, consultationFee } = bookingData;
 
       // Store in patients table
       const patientBookingRef = db.ref(`users/patients/${patientId}/appointments`);
@@ -769,7 +886,7 @@ app.post("/confirm-payment", async (req, res) => {
         specialty,
         date,
         time,
-        consultationFees,
+        consultationFee,
         status: "Confirmed",
       });
 
@@ -949,6 +1066,7 @@ app.post("/doctor/setup", async (req, res) => {
   }
 });
 
+
 app.get('/appointments/patient/:patientId', async (req, res) => {
   const { patientId } = req.params;
 
@@ -994,6 +1112,226 @@ app.get('/appointments/patient/:patientId', async (req, res) => {
   }
 });
 
+
+app.get("/getclaims", async (req, res) => {
+  try {
+    const claimsRef = db.ref("users/insurance/claims");
+    const snapshot = await claimsRef.once("value");
+
+    const claims = snapshot.val()
+      ? Object.entries(snapshot.val()).map(([id, data]) => ({
+          id,
+          ...data,
+        }))
+      : [];
+
+    res.status(200).json({ claims });
+  } catch (error) {
+    console.error("Error fetching claims:", error);
+    res.status(500).json({ error: "Failed to fetch claims." });
+  }
+});
+
+
+app.post("/claims", async (req, res) => {
+  const { claimReason, claimAmount, hospitalName } = req.body;
+
+  if (!claimReason || !claimAmount || !hospitalName) {
+    return res.status(400).json({ error: "Missing required fields." });
+  }
+
+  try {
+    const claimId = `claim_${uuidv4()}`;
+
+    const newClaim = {
+      reason: claimReason,
+      amount: parseFloat(claimAmount),
+      hospital: hospitalName,
+      status: "Pending",
+      createdAt: new Date().toISOString(),
+    };
+
+    const claimsRef = db.ref(`users/insurance/claims/${claimId}`);
+    await claimsRef.set(newClaim);
+
+    res.status(201).json({ id: claimId, ...newClaim });
+  } catch (error) {
+    console.error("Error submitting claim:", error);
+    res.status(500).json({ error: "Failed to submit claim." });
+  }
+});
+
+
+app.get("/api/network-hospitals/:patientId", async (req, res) => {
+  
+  const patientId =req.params.patientId;
+  console.log("PAtient id ", patientId);
+
+  try {
+    // Correct path reference
+    const patientRef = db.ref(`users/patients/${patientId}`);
+
+    // Fetch data
+    const snapshot = await patientRef.once('value');
+    console.log("Snapshot", snapshot.toString);
+
+    const data = snapshot.val();
+    console.log("data", data);
+    if (!data) {
+      return res.status(404).json({ message: 'Patient data not found.' });
+    }
+    const patientData = snapshot.val();
+    console.log("Patient data", patientData);
+    const insuranceCompanyName = patientData.insurance;
+    console.log("Insurance comapny", insuranceCompanyName);
+
+    if (!insuranceCompanyName) {
+      return res.status(404).json({ error: "Insurance provider not found for the patient." });
+    }
+
+    // Fetch network hospitals for the insurance provider
+    const networkHospitalsSnapshot = await db
+      .ref("users/networkHospitals")
+      .orderByChild("insuranceCompanyName")
+      .equalTo(insuranceCompanyName)
+      .once("value");
+    
+      console.log("Network hospitals", networkHospitalsSnapshot.val());
+    if (!networkHospitalsSnapshot.exists()) {
+      return res
+        .status(404)
+        .json({ error: `No network hospitals found for ${insuranceCompanyName}.` });
+    }
+
+    const networkHospitals = Object.values(networkHospitalsSnapshot.val());
+    res.status(200).json({
+      insuranceProvider: insuranceCompanyName,
+      networkHospitals,
+    });
+  } catch (error) {
+    console.error("Error fetching network hospitals:", error);
+    res.status(500).json({ error: "Failed to fetch network hospitals." });
+  }
+});
+
+
+app.post('/api/calculate-premium', (req, res) => {
+  const { age, coverageAmount, insuranceType } = req.body;
+
+  if (!age || !coverageAmount || !insuranceType) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  let baseRate = 0;
+  switch (insuranceType) {
+    case 'Health':
+      baseRate = 0.02;
+      break;
+    case 'Life':
+      baseRate = 0.03;
+      break;
+    case 'Vehicle':
+      baseRate = 0.05;
+      break;
+    default:
+      return res.status(400).json({ error: 'Invalid insurance type.' });
+  }
+
+  const ageFactor = age > 50 ? 1.5 : age > 30 ? 1.2 : 1.0;
+  const premium = (coverageAmount * baseRate * ageFactor).toFixed(2);
+
+  res.status(200).json({ premium });
+});
+
+
+
+app.get("/api/insurance-information/:patientId", async (req, res) => {
+  const patientId = req.params.patientId;
+
+  try {
+    const patientRef = db.ref(`users/patients/${patientId}`);
+    const patientSnapshot = await patientRef.once("value");
+
+    if (!patientSnapshot.exists()) {
+      return res.status(404).json({ error: "Patient not found." });
+    }
+
+    const patientData = patientSnapshot.val();
+
+    if (!patientData.insuranceDetails) {
+      return res.status(404).json({
+        error: "Insurance details not found for the patient.",
+      });
+    }
+
+    const insuranceDetails = patientData.insuranceDetails;
+    console.log("Insurance details", insuranceDetails);
+
+    res.status(200).json({
+      insuranceProvider: patientData.insurance,
+      policyNumber: insuranceDetails.policyNumber,
+      coverageAmount: insuranceDetails.coverageAmount,
+      validUntil: insuranceDetails.validUntil,
+      beneficiaries: insuranceDetails.beneficiaries //|| [], // Ensure beneficiaries is an array
+    });
+  } catch (error) {
+    console.error("Error fetching insurance information:", error);
+    res.status(500).json({ error: "Failed to fetch insurance information." });
+  }
+});
+
+
+
+
+app.post("/api/insurance", async (req, res) => {
+  const { patientId, policyNumber, coverageAmount, validUntil, beneficiaries } = req.body;
+
+  if (!patientId || !policyNumber || !coverageAmount || !validUntil || !beneficiaries) {
+    return res.status(400).json({ error: "All fields are required." });
+  }
+
+  try {
+    // Insurance table reference
+    const insuranceRef = db.ref(`users/patients/${patientId}`);
+
+    const insuranceData = {
+      policyNumber,
+      coverageAmount: parseFloat(coverageAmount),
+      validUntil,
+      beneficiaries,
+    };
+
+    await insuranceRef.set(insuranceData);
+
+    res.status(200).json({ message: "Insurance information saved successfully." });
+  } catch (error) {
+    console.error("Error saving insurance information:", error);
+    res.status(500).json({ error: "Failed to save insurance information." });
+  }
+});
+
+
+app.delete("/appointments/cancel/:appointmentId", async (req, res) => {
+  const { appointmentId } = req.params;
+  console.log("appointment ", appointmentId);
+
+  try {
+    // Reference to the appointment in the database
+    const appointmentRef = db.ref(`users/appointments/${appointmentId}`);
+    const appointmentSnapshot = await appointmentRef.once("value");
+
+    if (!appointmentSnapshot.exists()) {
+      return res.status(404).json({ error: "Appointment not found." });
+    }
+
+    // Remove the appointment from the database
+    await appointmentRef.remove();
+    res.status(200).json({ message: "Appointment canceled successfully." });
+  } catch (error) {
+    console.error("Error canceling appointment:", error);
+    res.status(500).json({ error: "Failed to cancel appointment." });
+  }
+});
 
 
 
